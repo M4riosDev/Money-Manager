@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Money Manager
 
-## Getting Started
+Money Manager is a clean, modern web app for tracking your monthly budget and expenses with zero setup friction.
 
-First, run the development server:
+Set your budget, log expenses by category, and instantly see how much you have left.
+
+Built for speed, clarity, and everyday use.
+
+## Features
+
+- Local-first by design (no account required)
+- Set and update a monthly budget
+- Add expenses with name, category, and amount
+- Remove expenses instantly
+- Live budget breakdown: Budget, Spent, Left
+- Category totals overview
+- Browser persistence via local storage
+- Responsive UI for desktop and mobile
+
+## How It Works
+
+The app runs entirely in your browser using Next.js frontend pages.
+
+- No backend server logic is required for data storage
+- No external database is used
+- Your budget and expenses are saved in browser local storage
+
+This means your data stays on your own device and is not uploaded to a remote database.
+
+## Quick Start
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## App Routes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- /: landing page
+- /dashboard: budget and expense tracker
 
-## Learn More
+## Local Development
 
-To learn more about Next.js, take a look at the following resources:
+If you want to modify or extend the project:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Clone the repository
+2. Run npm install
+3. Run npm run dev
+4. Open http://localhost:3000
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Data & Privacy
 
-## Deploy on Vercel
+- Data is stored in local storage on the current browser/device only
+- Clearing browser storage will remove saved budget and expenses
+- Data does not sync across devices
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Contributing
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Pull requests are welcome for meaningful improvements such as:
+
+- UI/UX enhancements
+- New budgeting features
+- Performance and code quality improvements
+- Better mobile experience
+
+For very small text-only changes, open an issue first.
