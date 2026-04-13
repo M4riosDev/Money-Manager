@@ -23,7 +23,7 @@ export default function HomePage() {
       >
         <h1 style={{ fontSize: 34, marginBottom: 12 }}>Money Manager That Stays Simple</h1>
         <p style={{ color: '#4b5563', marginBottom: 24 }}>
-          Set your monthly budget, track spending by category, and see what is left instantly. No signup, no cloud, just your data in your browser.
+          Set your monthly budget, track spending by category, and see what is left instantly.
         </p>
         <Link
           href="/dashboard"
