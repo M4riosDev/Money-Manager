@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
@@ -26,7 +26,7 @@ export default function LoginPage() {
     }
 
     checkSession();
-  }, [router, supabase.auth]);
+  }, [router, supabase]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -47,7 +47,14 @@ export default function LoginPage() {
       return;
     }
 
-    const { error } = await supabase.auth.signUp({ email, password });
+    const emailRedirectTo = `${window.location.origin}/auth/callback?next=/dashboard`;
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo,
+      },
+    });
 
     if (error) {
       setMessage(error.message);

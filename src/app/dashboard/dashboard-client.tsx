@@ -89,7 +89,7 @@ function clearLegacyFinance(userId: string) {
 
 export default function DashboardClient({ userId }: { userId: string }) {
   const router = useRouter();
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
   const [budget, setBudget] = useState("1500");
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
