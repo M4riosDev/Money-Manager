@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-
+  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   useEffect(() => {
     async function checkSession() {
       const {
@@ -47,7 +47,11 @@ export default function LoginPage() {
       return;
     }
 
-    const emailRedirectTo = `${window.location.origin}/auth/callback?next=/dashboard`;
+const redirectBaseUrl = normalizedSiteUrl ?? window.location.origin;
+    const redirectUrl = new URL("/auth/callback", redirectBaseUrl);
+    redirectUrl.searchParams.set("next", "/dashboard");
+
+    const emailRedirectTo = redirectUrl.toString();
     const { error } = await supabase.auth.signUp({
       email,
       password,
