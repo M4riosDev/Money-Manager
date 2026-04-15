@@ -14,6 +14,11 @@ export default function LoginPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  const normalizedSiteUrl = configuredSiteUrl
+  ? configuredSiteUrl.startsWith("http")
+    ? configuredSiteUrl
+    : `https://${configuredSiteUrl}`
+  : null;
   useEffect(() => {
     async function checkSession() {
       const {
