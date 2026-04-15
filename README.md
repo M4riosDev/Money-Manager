@@ -8,7 +8,9 @@ Built for speed, clarity, and everyday use.
 
 ## Features
 
-- Local-first by design (no account required)
+- Supabase email/password authentication
+- Protected dashboard route (login required)
+- Finance data stored in Supabase Postgres with RLS
 - Set and update a monthly budget
 - Add expenses with name, category, and amount
 - Remove expenses instantly
@@ -19,13 +21,12 @@ Built for speed, clarity, and everyday use.
 
 ## How It Works
 
-The app runs entirely in your browser using Next.js frontend pages.
+The app uses Next.js with Supabase authentication and stores finance data in Supabase Postgres.
 
-- No backend server logic is required for data storage
-- No external database is used
-- Your budget and expenses are saved in browser local storage
-
-This means your data stays on your own device and is not uploaded to a remote database.
+- Authentication is handled by Supabase Auth
+- User session is managed with secure cookies
+- Budget and expenses are stored per user in Supabase
+- Supabase row-level security ensures only the signed-in user can access their vault row
 
 ## Quick Start
 
@@ -34,11 +35,21 @@ npm install
 npm run dev
 ```
 
+Create a `.env.local` file in the project root:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
 Open http://localhost:3000
+
+To create the database table and security policies, run the SQL in [supabase/finance_vault.sql](supabase/finance_vault.sql) in the Supabase SQL editor.
 
 ## App Routes
 
 - /: landing page
+- /login: login and signup page
 - /dashboard: budget and expense tracker
 
 ## Local Development
@@ -52,9 +63,10 @@ If you want to modify or extend the project:
 
 ## Data & Privacy
 
-- Data is stored in local storage on the current browser/device only
-- Clearing browser storage will remove saved budget and expenses
-- Data does not sync across devices
+- Login uses Supabase Auth for identity and session management
+- Data is stored in Supabase Postgres, protected by RLS
+- Logging out ends the authenticated session
+- Data does not sync across devices unless you sign in to the same account
 
 ## Contributing
 

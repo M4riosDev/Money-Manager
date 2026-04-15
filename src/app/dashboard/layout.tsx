@@ -1,8 +1,12 @@
+import { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import DashboardClient from "./dashboard-client";
 
-export default async function DashboardPage() {
+export default async function DashboardLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -12,5 +16,5 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  return <DashboardClient userId={user.id} />;
+  return <>{children}</>;
 }

@@ -26,7 +26,7 @@ export default function HomePage() {
           Set your monthly budget, track spending by category, and see what is left instantly.
         </p>
         <Link
-          href="/dashboard"
+          href="/login"
           style={{
             display: 'inline-block',
             background: '#111827',
@@ -37,7 +37,7 @@ export default function HomePage() {
             fontWeight: 600,
           }}
         >
-          Start Tracking Now
+          Login to Continue
         </Link>
       </section>
     </main>
