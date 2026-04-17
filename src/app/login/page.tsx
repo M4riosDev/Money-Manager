@@ -13,15 +13,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-
   const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-
   const normalizedSiteUrl = configuredSiteUrl
-    ? configuredSiteUrl.startsWith("http")
-      ? configuredSiteUrl
-      : `https://${configuredSiteUrl}`
-    : null;
-
+  ? configuredSiteUrl.startsWith("http")
+    ? configuredSiteUrl
+    : `https://${configuredSiteUrl}`
+  : null;
   useEffect(() => {
     async function checkSession() {
       const {
@@ -55,7 +52,7 @@ export default function LoginPage() {
       return;
     }
 
-    const redirectBaseUrl = normalizedSiteUrl ?? window.location.origin;
+const redirectBaseUrl = normalizedSiteUrl ?? window.location.origin;
     const redirectUrl = new URL("/auth/callback", redirectBaseUrl);
     redirectUrl.searchParams.set("next", "/dashboard");
 
