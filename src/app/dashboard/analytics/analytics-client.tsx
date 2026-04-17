@@ -99,21 +99,23 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
           display: "grid",
           placeItems: "center",
           padding: "2rem 1rem",
+          background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
         }}
       >
         <section
           style={{
             width: "100%",
             maxWidth: 460,
-            borderRadius: 14,
-            border: "1px solid #e5e7eb",
+            borderRadius: 16,
+            border: "1px solid #f0f0f0",
             background: "#fff",
-            padding: "1.5rem",
+            padding: "2rem",
+            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.08)",
           }}
         >
-          <h1 style={{ margin: 0, fontSize: 30 }}>Loading charts</h1>
-          <p style={{ marginTop: 8, marginBottom: 0, color: "#4b5563" }}>
-            Fetching your analytics data.
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: "700", color: "#111827" }}>📊 Loading Charts</h1>
+          <p style={{ marginTop: 12, marginBottom: 0, color: "#6b7280", fontSize: 15 }}>
+            Fetching your analytics data...
           </p>
         </section>
       </main>
@@ -125,29 +127,40 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
       <main
         style={{
           minHeight: "100vh",
-          maxWidth: 760,
-          margin: "0 auto",
-          padding: "2rem 1rem",
+          width: "100%",
+          margin: 0,
+          padding: "1.5rem 2rem",
+          background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 20 }}>
-          <div style={{ flex: 1 }}>
-            <h1 style={{ fontSize: 34, marginBottom: 8 }}>Charts & Analytics</h1>
-            <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
+          <div>
+            <h1 style={{ fontSize: 40, marginBottom: 4, fontWeight: "800", color: "#111827" }}>📊 Charts & Analytics</h1>
+            <p style={{ margin: 0, color: "#6b7280", fontSize: 15 }}>
               Visualize your spending patterns
             </p>
           </div>
           <Link
             href="/dashboard/expenses"
             style={{
-              border: "1px solid #d1d5db",
+              border: "2px solid #e5e7eb",
               background: "#fff",
               color: "#111827",
-              borderRadius: 8,
-              padding: "8px 12px",
+              borderRadius: 10,
+              padding: "10px 16px",
               cursor: "pointer",
               fontWeight: 600,
               textDecoration: "none",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+              transition: "all 0.3s ease",
+            }}
+            onMouseEnter={(e) => {
+              (e.target as HTMLElement).style.transform = "translateY(-2px)";
+              (e.target as HTMLElement).style.boxShadow = "0 6px 16px rgba(0, 0, 0, 0.15)";
+            }}
+            onMouseLeave={(e) => {
+              (e.target as HTMLElement).style.transform = "translateY(0)";
+              (e.target as HTMLElement).style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.1)";
             }}
           >
             ← Back to Expenses
@@ -157,26 +170,43 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
         <section
           style={{
             background: "#fff",
-            border: "1px solid #e5e7eb",
-            borderRadius: 12,
-            padding: "1.5rem",
+            borderRadius: 16,
+            padding: "3rem 2rem",
             textAlign: "center",
+            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.08)",
+            border: "1px solid #f0f0f0",
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
           }}
         >
-          <p style={{ color: "#6b7280", fontSize: 16 }}>
-            No expenses yet. Add some expenses to see your analytics!
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📉</div>
+          <p style={{ color: "#6b7280", fontSize: 16, marginBottom: 24, margin: 0 }}>
+            No expenses yet. Add some expenses to see your analytics and visualizations!
           </p>
           <Link
             href="/dashboard/expenses"
             style={{
               display: "inline-block",
-              marginTop: 12,
-              background: "#111827",
+              marginTop: 16,
+              background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
               color: "#fff",
-              padding: "10px 16px",
-              borderRadius: 8,
+              padding: "12px 24px",
+              borderRadius: 10,
               textDecoration: "none",
               fontWeight: 600,
+              boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
+              transition: "all 0.3s ease",
+            }}
+            onMouseEnter={(e) => {
+              (e.target as HTMLElement).style.transform = "translateY(-2px)";
+              (e.target as HTMLElement).style.boxShadow = "0 6px 16px rgba(59, 130, 246, 0.4)";
+            }}
+            onMouseLeave={(e) => {
+              (e.target as HTMLElement).style.transform = "translateY(0)";
+              (e.target as HTMLElement).style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.3)";
             }}
           >
             Add Expenses
@@ -190,29 +220,42 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
     <main
       style={{
         minHeight: "100vh",
-        maxWidth: 900,
-        margin: "0 auto",
-        padding: "2rem 1rem",
+        width: "100%",
+        margin: 0,
+        padding: "1.5rem 2rem",
+        background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexShrink: 0 }}>
         <div>
-          <h1 style={{ fontSize: 34, marginBottom: 8 }}>Charts & Analytics</h1>
-          <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>
+          <h1 style={{ fontSize: 40, marginBottom: 4, fontWeight: "800", color: "#111827" }}>📊 Charts & Analytics</h1>
+          <p style={{ margin: 0, color: "#6b7280", fontSize: 15 }}>
             Visualize your spending patterns
           </p>
         </div>
         <Link
           href="/dashboard/expenses"
           style={{
-            border: "1px solid #d1d5db",
+            border: "none",
             background: "#fff",
             color: "#111827",
-            borderRadius: 8,
-            padding: "8px 12px",
+            borderRadius: 10,
+            padding: "10px 16px",
             cursor: "pointer",
             fontWeight: 600,
             textDecoration: "none",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+            transition: "all 0.3s ease"
+          }}
+          onMouseEnter={(e) => {
+            (e.target as HTMLElement).style.transform = "translateY(-2px)";
+            (e.target as HTMLElement).style.boxShadow = "0 6px 16px rgba(0, 0, 0, 0.15)";
+          }}
+          onMouseLeave={(e) => {
+            (e.target as HTMLElement).style.transform = "translateY(0)";
+            (e.target as HTMLElement).style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.1)";
           }}
         >
           ← Back to Expenses
@@ -223,106 +266,142 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+            gridTemplateColumns: "repeat(3, 1fr)",
             gap: 16,
-            marginBottom: 20,
           }}
         >
           <div
             style={{
-              background: "#f3f4f6",
-              padding: "1rem",
-              borderRadius: 8,
-              textAlign: "center",
+              background: "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)",
+              padding: "1.5rem",
+              borderRadius: 14,
+              border: "1px solid #93c5fd",
+              boxShadow: "0 10px 25px rgba(59, 130, 246, 0.1)",
             }}
           >
-            <div style={{ color: "#6b7280", fontSize: 14, marginBottom: 4 }}>Total Budget</div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>${budgetValue.toFixed(2)}</div>
+            <div style={{ color: "#1e40af", fontSize: 13, marginBottom: 8, fontWeight: "600" }}>Total Budget</div>
+            <div style={{ fontSize: 28, fontWeight: "800", color: "#1e3a8a" }}>${budgetValue.toFixed(2)}</div>
           </div>
           <div
             style={{
-              background: "#f3f4f6",
-              padding: "1rem",
-              borderRadius: 8,
-              textAlign: "center",
+              background: "linear-gradient(135deg, #fecaca 0%, #fca5a5 100%)",
+              padding: "1.5rem",
+              borderRadius: 14,
+              border: "1px solid #f87171",
+              boxShadow: "0 10px 25px rgba(239, 68, 68, 0.1)",
             }}
           >
-            <div style={{ color: "#6b7280", fontSize: 14, marginBottom: 4 }}>Total Spent</div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>${total.toFixed(2)}</div>
+            <div style={{ color: "#991b1b", fontSize: 13, marginBottom: 8, fontWeight: "600" }}>Total Spent</div>
+            <div style={{ fontSize: 28, fontWeight: "800", color: "#7f1d1d" }}>${total.toFixed(2)}</div>
           </div>
           <div
             style={{
-              background: "#f3f4f6",
-              padding: "1rem",
-              borderRadius: 8,
-              textAlign: "center",
+              background: remaining < 0 
+                ? "linear-gradient(135deg, #fca5a5 0%, #f87171 100%)"
+                : "linear-gradient(135deg, #a7f3d0 0%, #6ee7b7 100%)",
+              padding: "1.5rem",
+              borderRadius: 14,
+              border: remaining < 0 ? "1px solid #f87171" : "1px solid #6ee7b7",
+              boxShadow: remaining < 0 
+                ? "0 10px 25px rgba(239, 68, 68, 0.1)"
+                : "0 10px 25px rgba(16, 185, 129, 0.1)",
             }}
           >
-            <div style={{ color: "#6b7280", fontSize: 14, marginBottom: 4 }}>Remaining</div>
-            <div
-              style={{
-                fontSize: 20,
-                fontWeight: 700,
-                color: remaining < 0 ? "#b91c1c" : "#065f46",
-              }}
-            >
+            <div style={{ color: remaining < 0 ? "#991b1b" : "#065f46", fontSize: 13, marginBottom: 8, fontWeight: "600" }}>Remaining</div>
+            <div style={{ fontSize: 28, fontWeight: "800", color: remaining < 0 ? "#7f1d1d" : "#047857" }}>
               ${remaining.toFixed(2)}
             </div>
           </div>
         </div>
       </div>
 
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 20, overflowY: "auto", paddingBottom: "1rem", height: "100%" }}>
+        <section
+          style={{
+            background: "#fff",
+            borderRadius: 16,
+            padding: "2rem",
+            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.08)",
+            border: "1px solid #f0f0f0",
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            minHeight: 500,
+          }}
+        >
+          <h2 style={{ fontSize: 18, marginTop: 0, marginBottom: 24, fontWeight: "700", color: "#111827" }}>💳 Budget Overview</h2>
+          <ResponsiveContainer width="100%" height={350}>
+            <BarChart
+              data={budgetComparisonData}
+              margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="name" stroke="#9ca3af" style={{ fontSize: 12 }} />
+              <YAxis stroke="#9ca3af" style={{ fontSize: 12 }} />
+              <Tooltip 
+                formatter={(value) => `$${Number(value).toFixed(2)}`}
+                contentStyle={{
+                  background: "#fff",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 8,
+                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                }}
+              />
+              <Bar dataKey="value" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </section>
+
       <section
         style={{
           background: "#fff",
-          border: "1px solid #e5e7eb",
-          borderRadius: 12,
-          padding: "1.5rem",
-          marginBottom: 24,
+          borderRadius: 16,
+          padding: "2rem",
+          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.08)",
+          border: "1px solid #f0f0f0",
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          minHeight: 500,
         }}
       >
-        <h2 style={{ fontSize: 20, marginTop: 0, marginBottom: 20 }}>Budget Overview</h2>
+        <h2 style={{ fontSize: 18, marginTop: 0, marginBottom: 24, fontWeight: "700", color: "#111827" }}>📈 Spending by Category</h2>
         <ResponsiveContainer width="100%" height={350}>
-          <BarChart data={budgetComparisonData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
-            <Bar dataKey="value" fill="#3b82f6" />
+          <BarChart
+            data={barChartData}
+            margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis dataKey="category" stroke="#9ca3af" style={{ fontSize: 12 }} />
+            <YAxis stroke="#9ca3af" style={{ fontSize: 12 }} />
+            <Tooltip 
+              formatter={(value) => `$${Number(value).toFixed(2)}`}
+              contentStyle={{
+                background: "#fff",
+                border: "1px solid #e5e7eb",
+                borderRadius: 8,
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+              }}
+            />
+            <Bar dataKey="amount" fill="#10b981" radius={[8, 8, 0, 0]} />
           </BarChart>
-        </ResponsiveContainer>
+          </ResponsiveContainer>
       </section>
 
       <section
         style={{
           background: "#fff",
-          border: "1px solid #e5e7eb",
-          borderRadius: 12,
-          padding: "1.5rem",
-          marginBottom: 24,
+          borderRadius: 16,
+          padding: "2rem",
+          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.08)",
+          border: "1px solid #f0f0f0",
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          minHeight: 500,
         }}
       >
-        <h2 style={{ fontSize: 20, marginTop: 0, marginBottom: 20 }}>Spending by Category</h2>
-        <ResponsiveContainer width="100%" height={350}>
-          <BarChart data={barChartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="category" />
-            <YAxis />
-            <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
-            <Bar dataKey="amount" fill="#10b981" />
-          </BarChart>
-        </ResponsiveContainer>
-      </section>
-
-      <section
-        style={{
-          background: "#fff",
-          border: "1px solid #e5e7eb",
-          borderRadius: 12,
-          padding: "1.5rem",
-        }}
-      >
-        <h2 style={{ fontSize: 20, marginTop: 0, marginBottom: 20 }}>Expense Distribution</h2>
+        <h2 style={{ fontSize: 18, marginTop: 0, marginBottom: 24, fontWeight: "700", color: "#111827" }}>🥧 Expense Distribution</h2>
         <ResponsiveContainer width="100%" height={350}>
           <PieChart>
             <Pie
@@ -331,18 +410,27 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
               cy="50%"
               labelLine={false}
               label={({ name, value }) => `${name}: $${value}`}
-              outerRadius={100}
+              outerRadius={110}
               fill="#8884d8"
               dataKey="value"
             >
-              {pieChartData.map((_, index) => (
+              {pieChartData.map((_, index: number) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>
-            <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
+            <Tooltip 
+              formatter={(value) => `$${Number(value).toFixed(2)}`}
+              contentStyle={{
+                background: "#fff",
+                border: "1px solid #e5e7eb",
+                borderRadius: 8,
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+              }}
+            />
           </PieChart>
         </ResponsiveContainer>
       </section>
+      </div>
     </main>
   );
 }
