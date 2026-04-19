@@ -2,90 +2,46 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
-type Expense = {
-  id: string;
-  name: string;
-  amount: number;
-  category: string;
-};
-
-type FinanceRow = {
-  budget: string;
-  expenses: Expense[];
-};
+type Expense = { id: string; name: string; amount: number; category: string; };
+type FinanceRow = { budget: string; expenses: Expense[]; };
 
 const CATEGORIES = ["Food", "Bills", "Transport", "Shopping", "Health", "Other"];
-const LEGACY_STORAGE_KEYS = [
-  "money-manager-expenses",
-  "money-manager-budget",
-  "money-manager:budget",
-  "money-manager:expenses",
-];
+const LEGACY_KEYS = ["money-manager-expenses","money-manager-budget","money-manager:budget","money-manager:expenses"];
+const CAT_COLORS: Record<string, string> = {
+  Food: "#3b82f6", Bills: "#ef4444", Transport: "#8b5cf6",
+  Shopping: "#f59e0b", Health: "#10b981", Other: "#6b7280",
+};
 
-function createDefaultFinanceRow(): FinanceRow {
+function normalizeRow(v: Partial<FinanceRow> | null | undefined): FinanceRow {
+  if (!v) return { budget: "0", expenses: [] };
   return {
-    budget: "0",
-    expenses: [],
+    budget: typeof v.budget === "string" ? v.budget : "0",
+    expenses: Array.isArray(v.expenses) ? v.expenses.map(i => ({
+      id: typeof i?.id === "string" ? i.id : crypto.randomUUID(),
+      name: typeof i?.name === "string" ? i.name : "",
+      amount: Number(i?.amount) || 0,
+      category: typeof i?.category === "string" ? i.category : "Other",
+    })) : [],
   };
 }
 
-function normalizeFinanceRow(value: Partial<FinanceRow> | null | undefined): FinanceRow {
-  if (!value) {
-    return createDefaultFinanceRow();
-  }
-
-  return {
-    budget: typeof value.budget === "string" ? value.budget : "0",
-    expenses: Array.isArray(value.expenses)
-      ? value.expenses.map((item) => ({
-          id: typeof item?.id === "string" ? item.id : crypto.randomUUID(),
-          name: typeof item?.name === "string" ? item.name : "",
-          amount: Number(item?.amount) || 0,
-          category: typeof item?.category === "string" ? item.category : "Other",
-        }))
-      : [],
-  };
-}
-
-function readLegacyFinance(userId: string) {
+function readLegacy(userId: string): FinanceRow | null {
   if (typeof window === "undefined") return null;
-
-  const legacyBudget =
-    localStorage.getItem(`money-manager:${userId}:budget`) ??
-    localStorage.getItem("money-manager-budget");
-  const legacyExpensesRaw =
-    localStorage.getItem(`money-manager:${userId}:expenses`) ??
-    localStorage.getItem("money-manager-expenses");
-
-  let legacyExpenses: Expense[] | null = null;
-  if (legacyExpensesRaw) {
-    try {
-      const parsed = JSON.parse(legacyExpensesRaw) as Expense[];
-      legacyExpenses = Array.isArray(parsed) ? parsed : null;
-    } catch {
-      legacyExpenses = null;
-    }
-  }
-
-  if (!legacyBudget && !legacyExpenses) return null;
-
-  return normalizeFinanceRow({
-    budget: legacyBudget ?? "0",
-    expenses: legacyExpenses ?? [],
-  });
+  const b = localStorage.getItem(`money-manager:${userId}:budget`) ?? localStorage.getItem("money-manager-budget");
+  const eRaw = localStorage.getItem(`money-manager:${userId}:expenses`) ?? localStorage.getItem("money-manager-expenses");
+  if (!b && !eRaw) return null;
+  let e: Expense[] | null = null;
+  try { const p = JSON.parse(eRaw ?? ""); e = Array.isArray(p) ? p : null; } catch { e = null; }
+  return normalizeRow({ budget: b ?? "0", expenses: e ?? [] });
 }
 
-function clearLegacyFinance(userId: string) {
+function clearLegacy(userId: string) {
   if (typeof window === "undefined") return;
-
   localStorage.removeItem(`money-manager:${userId}:budget`);
   localStorage.removeItem(`money-manager:${userId}:expenses`);
-  for (const key of LEGACY_STORAGE_KEYS) {
-    localStorage.removeItem(key);
-  }
+  LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
 }
 
 export default function ExpensesClient({ userId }: { userId: string }) {
@@ -100,607 +56,251 @@ export default function ExpensesClient({ userId }: { userId: string }) {
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const total = useMemo(() => {
-    return expenses.reduce((sum, item) => sum + item.amount, 0);
-  }, [expenses]);
-
+  const total = useMemo(() => expenses.reduce((s, i) => s + i.amount, 0), [expenses]);
   const budgetValue = Number(budget) > 0 ? Number(budget) : 0;
   const remaining = budgetValue - total;
+  const pct = budgetValue > 0 ? Math.min(100, (total / budgetValue) * 100) : 0;
 
   const byCategory = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const item of expenses) {
-      map[item.category] = (map[item.category] || 0) + item.amount;
-    }
-    return map;
+    const m: Record<string, number> = {};
+    expenses.forEach(i => { m[i.category] = (m[i.category] || 0) + i.amount; });
+    return m;
   }, [expenses]);
 
   useEffect(() => {
     let cancelled = false;
-
-    async function loadFinance() {
-      setLoading(true);
-      setError("");
-
-      const { data, error: fetchError } = await supabase
-        .from("vaults")
-        .select("budget, expenses")
-        .eq("user_id", userId)
-        .maybeSingle<FinanceRow>();
-
+    async function load() {
+      setLoading(true); setError("");
+      const { data, error: e } = await supabase.from("vaults").select("budget, expenses").eq("user_id", userId).maybeSingle<FinanceRow>();
       if (cancelled) return;
-
-      if (fetchError) {
-        setError(fetchError.message);
-        setLoading(false);
-        return;
-      }
-
+      if (e) { setError(e.message); setLoading(false); return; }
       if (data) {
-        const normalized = normalizeFinanceRow(data);
-        setBudget(normalized.budget);
-        setExpenses(normalized.expenses);
-        clearLegacyFinance(userId);
-        setLoading(false);
-        return;
+        const n = normalizeRow(data);
+        setBudget(n.budget); setExpenses(n.expenses);
+        clearLegacy(userId); setLoading(false); return;
       }
-
-      const legacyFinance = readLegacyFinance(userId) ?? createDefaultFinanceRow();
-      setBudget(legacyFinance.budget);
-      setExpenses(legacyFinance.expenses);
-
-      const { error: insertError } = await supabase
-        .from("vaults")
-        .upsert(
-          {
-            user_id: userId,
-            budget: legacyFinance.budget,
-            expenses: legacyFinance.expenses,
-          },
-          { onConflict: "user_id" },
-        );
-
+      const legacy = readLegacy(userId) ?? { budget: "0", expenses: [] };
+      setBudget(legacy.budget); setExpenses(legacy.expenses);
+      const { error: ie } = await supabase.from("vaults").upsert({ user_id: userId, budget: legacy.budget, expenses: legacy.expenses }, { onConflict: "user_id" });
       if (cancelled) return;
-
-      if (insertError) {
-        setError(insertError.message);
-      } else {
-        clearLegacyFinance(userId);
-      }
-
+      if (ie) setError(ie.message); else clearLegacy(userId);
       setLoading(false);
     }
-
-    loadFinance().catch(() => {
-      if (!cancelled) {
-        setError("Unable to load finance data.");
-        setLoading(false);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
+    load().catch(() => { if (!cancelled) { setError("Unable to load."); setLoading(false); } });
+    return () => { cancelled = true; };
   }, [supabase, userId]);
 
   useEffect(() => {
     if (loading || error) return;
-
     setIsSaving(true);
-    const timeoutId = window.setTimeout(() => {
+    const t = window.setTimeout(() => {
       void (async () => {
-        try {
-          await supabase.from("vaults").upsert(
-            {
-              user_id: userId,
-              budget,
-              expenses,
-            },
-            { onConflict: "user_id" },
-          );
-        } finally {
-          setIsSaving(false);
-        }
+        try { await supabase.from("vaults").upsert({ user_id: userId, budget, expenses }, { onConflict: "user_id" }); }
+        finally { setIsSaving(false); }
       })();
     }, 350);
-
-    return () => window.clearTimeout(timeoutId);
+    return () => window.clearTimeout(t);
   }, [budget, expenses, error, loading, supabase, userId]);
 
   function addExpense(e: React.FormEvent) {
     e.preventDefault();
-    const value = Number(amount);
-    if (!name.trim() || !Number.isFinite(value) || value <= 0) return;
-
-    setExpenses((prev) => [
-      { id: crypto.randomUUID(), name: name.trim(), amount: value, category },
-      ...prev,
-    ]);
-    setName("");
-    setAmount("");
+    const v = Number(amount);
+    if (!name.trim() || !Number.isFinite(v) || v <= 0) return;
+    setExpenses(prev => [{ id: crypto.randomUUID(), name: name.trim(), amount: v, category }, ...prev]);
+    setName(""); setAmount("");
   }
 
-  function removeExpense(id: string) {
-    setExpenses((prev) => prev.filter((item) => item.id !== id));
-  }
+  function removeExpense(id: string) { setExpenses(p => p.filter(i => i.id !== id)); }
 
-  async function logout() {
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  }
+  async function logout() { await supabase.auth.signOut(); router.push("/login"); router.refresh(); }
 
-  if (loading) {
-    return (
-      <main
-        style={{
-          minHeight: "100vh",
-          display: "grid",
-          placeItems: "center",
-          padding: "2rem 1rem",
-        }}
-      >
-        <section
-          style={{
-            width: "100%",
-            maxWidth: 460,
-            borderRadius: 14,
-            border: "1px solid #e5e7eb",
-            background: "#fff",
-            padding: "1.5rem",
-          }}
-        >
-          <h1 style={{ margin: 0, fontSize: 30 }}>Loading dashboard</h1>
-          <p style={{ marginTop: 8, marginBottom: 0, color: "#4b5563" }}>
-            Fetching your finance data from Supabase.
-          </p>
-        </section>
-      </main>
-    );
-  }
+  if (loading) return (
+    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ width: 32, height: 32, borderRadius: "50%", border: "2px solid #e3e5ea", borderTopColor: "#0d0f12", animation: "spin 0.7s linear infinite", margin: "0 auto 12px" }} />
+        <p style={{ color: "#7a8394", fontSize: 13 }}>Loading your data…</p>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
 
-  if (error) {
-    return (
-      <main
-        style={{
-          minHeight: "100vh",
-          display: "grid",
-          placeItems: "center",
-          padding: "2rem 1rem",
-        }}
-      >
-        <section
-          style={{
-            width: "100%",
-            maxWidth: 460,
-            borderRadius: 14,
-            border: "1px solid #e5e7eb",
-            background: "#fff",
-            padding: "1.5rem",
-          }}
-        >
-          <h1 style={{ margin: 0, fontSize: 30 }}>Dashboard error</h1>
-          <p style={{ marginTop: 8, marginBottom: 0, color: "#b91c1c" }}>{error}</p>
-        </section>
-      </main>
-    );
-  }
+  if (error) return (
+    <div className="content">
+      <div className="card" style={{ borderColor: "#fecaca", background: "#fef2f2", maxWidth: 480 }}>
+        <h2 style={{ color: "#991b1b", fontSize: 15, fontWeight: 600 }}>Error loading data</h2>
+        <p style={{ color: "#dc2626", fontSize: 13, marginTop: 6 }}>{error}</p>
+      </div>
+    </div>
+  );
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        width: "100%",
-        margin: 0,
-        padding: "1.5rem 2rem",
-        background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexShrink: 0 }}>
-        <div>
-          <h1 style={{ fontSize: 40, marginBottom: 4, fontWeight: "800", color: "#111827" }}>💰 Expenses</h1>
-          <p style={{ margin: 0, color: "#6b7280", fontSize: 15 }}>
-            Track and manage your monthly expenses
-          </p>
+    <>
+      {/* Topbar */}
+      <div className="topbar">
+        <div className="topbar-left">
+          <span className="topbar-title">Expenses</span>
+          {isSaving && (
+            <span style={{ fontSize: 11, color: "#b2b9c4", fontFamily: "var(--font-mono)" }}>● saving…</span>
+          )}
         </div>
-        <div style={{ display: "flex", gap: 12 }}>
-          <Link
-            href="/dashboard/analytics"
-            style={{
-              border: "none",
-              background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-              color: "#fff",
-              borderRadius: 10,
-              padding: "10px 16px",
-              cursor: "pointer",
-              fontWeight: 600,
-              textDecoration: "none",
-              boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
-              transition: "all 0.3s ease",
-            }}
-            onMouseEnter={(e) => {
-              (e.target as HTMLElement).style.transform = "translateY(-2px)";
-              (e.target as HTMLElement).style.boxShadow = "0 6px 16px rgba(59, 130, 246, 0.4)";
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLElement).style.transform = "translateY(0)";
-              (e.target as HTMLElement).style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.3)";
-            }}
-          >
-            📊 Charts
-          </Link>
-          <button
-            onClick={logout}
-            style={{
-              border: "2px solid #e5e7eb",
-              background: "#fff",
-              color: "#111827",
-              borderRadius: 10,
-              padding: "10px 16px",
-              cursor: "pointer",
-              fontWeight: 600,
-              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
-              transition: "all 0.3s ease",
-            }}
-            onMouseEnter={(e) => {
-              (e.target as HTMLElement).style.background = "#f9fafb";
-              (e.target as HTMLElement).style.transform = "translateY(-2px)";
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLElement).style.background = "#fff";
-              (e.target as HTMLElement).style.transform = "translateY(0)";
-            }}
-          >
-            Logout
-          </button>
+        <div className="topbar-right">
+          <button onClick={logout} className="btn btn-ghost btn-sm">Sign out</button>
         </div>
       </div>
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 24, overflowY: "auto", paddingBottom: "1rem" }}>
-      <section
-        style={{
-          background: "#fff",
-          borderRadius: 16,
-          padding: "2rem",
-          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.08)",
-          border: "1px solid #f0f0f0",
-          flexShrink: 0,
-        }}
-      >
-        <h2 style={{ fontSize: 18, marginTop: 0, marginBottom: 20, fontWeight: "700", color: "#111827" }}>Set Your Budget</h2>
-        <div style={{ marginBottom: 0 }}>
-          <label style={{ display: "block", marginBottom: 10, color: "#4b5563", fontSize: 14, fontWeight: "600" }}>
-            Monthly Budget
-          </label>
-          <input
-            value={budget}
-            onChange={(e) => setBudget(e.target.value)}
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="0.00"
-            style={{
-              width: "100%",
-              maxWidth: 320,
-              padding: "12px 16px",
-              fontSize: "16px",
-              border: "2px solid #e5e7eb",
-              borderRadius: 10,
-              background: "#fafafa",
-              fontFamily: "inherit",
-              transition: "all 0.3s ease",
-            }}
-            onFocus={(e) => {
-              (e.target as HTMLElement).style.borderColor = "#3b82f6";
-              (e.target as HTMLElement).style.background = "#fff";
-              (e.target as HTMLElement).style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
-            }}
-            onBlur={(e) => {
-              (e.target as HTMLElement).style.borderColor = "#e5e7eb";
-              (e.target as HTMLElement).style.background = "#fafafa";
-              (e.target as HTMLElement).style.boxShadow = "none";
-            }}
-          />
-        </div>
-      </section>
-
-      <section
-        style={{
-          background: "#fff",
-          borderRadius: 16,
-          padding: "2rem",
-          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.08)",
-          border: "1px solid #f0f0f0",
-          flexShrink: 0,
-        }}
-      >
-        <h2 style={{ fontSize: 18, marginTop: 0, marginBottom: 20, fontWeight: "700", color: "#111827" }}>Add New Expense</h2>
-        <form onSubmit={addExpense} style={{ display: "grid", gap: 16 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 12, alignItems: "flex-end" }}>
-            <div>
-              <label style={{ display: "block", marginBottom: 8, color: "#4b5563", fontSize: 14, fontWeight: "600" }}>
-                Name
-              </label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Coffee"
-                style={{
-                  width: "100%",
-                  padding: "10px 14px",
-                  fontSize: "14px",
-                  border: "2px solid #e5e7eb",
-                  borderRadius: 10,
-                  background: "#fafafa",
-                  fontFamily: "inherit",
-                  transition: "all 0.3s ease",
-                }}
-                onFocus={(e) => {
-                  (e.target as HTMLElement).style.borderColor = "#3b82f6";
-                  (e.target as HTMLElement).style.background = "#fff";
-                  (e.target as HTMLElement).style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
-                }}
-                onBlur={(e) => {
-                  (e.target as HTMLElement).style.borderColor = "#e5e7eb";
-                  (e.target as HTMLElement).style.background = "#fafafa";
-                  (e.target as HTMLElement).style.boxShadow = "none";
-                }}
-              />
-            </div>
-            <div>
-              <label style={{ display: "block", marginBottom: 8, color: "#4b5563", fontSize: 14, fontWeight: "600" }}>
-                Category
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "10px 14px",
-                  fontSize: "14px",
-                  border: "2px solid #e5e7eb",
-                  borderRadius: 10,
-                  background: "#fafafa",
-                  fontFamily: "inherit",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                }}
-              >
-                {CATEGORIES.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label style={{ display: "block", marginBottom: 8, color: "#4b5563", fontSize: 14, fontWeight: "600" }}>
-                Amount
-              </label>
-              <input
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                style={{
-                  width: "100%",
-                  padding: "10px 14px",
-                  fontSize: "14px",
-                  border: "2px solid #e5e7eb",
-                  borderRadius: 10,
-                  background: "#fafafa",
-                  fontFamily: "inherit",
-                  transition: "all 0.3s ease",
-                }}
-                onFocus={(e) => {
-                  (e.target as HTMLElement).style.borderColor = "#3b82f6";
-                  (e.target as HTMLElement).style.background = "#fff";
-                  (e.target as HTMLElement).style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
-                }}
-                onBlur={(e) => {
-                  (e.target as HTMLElement).style.borderColor = "#e5e7eb";
-                  (e.target as HTMLElement).style.background = "#fafafa";
-                  (e.target as HTMLElement).style.boxShadow = "none";
-                }}
-              />
-            </div>
-            <button
-              type="submit"
-              style={{
-                background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                color: "#fff",
-                border: "none",
-                borderRadius: 10,
-                padding: "10px 20px",
-                fontWeight: 600,
-                cursor: "pointer",
-                boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
-                transition: "all 0.3s ease",
-                fontSize: "14px",
-              }}
-              onMouseEnter={(e) => {
-                (e.target as HTMLElement).style.transform = "translateY(-2px)";
-                (e.target as HTMLElement).style.boxShadow = "0 6px 16px rgba(16, 185, 129, 0.4)";
-              }}
-              onMouseLeave={(e) => {
-                (e.target as HTMLElement).style.transform = "translateY(0)";
-                (e.target as HTMLElement).style.boxShadow = "0 4px 12px rgba(16, 185, 129, 0.3)";
-              }}
-            >
-              Add
-            </button>
+      <div className="content">
+        {/* Stats row */}
+        <div className="grid-3 fade-up" style={{ marginBottom: 20 }}>
+          <div className="stat-tile">
+            <div className="stat-tile-label">Monthly budget</div>
+            <div className="stat-tile-value">€{budgetValue.toFixed(2)}</div>
           </div>
-        </form>
-      </section>
-
-      <section
-        style={{
-          background: "#fff",
-          borderRadius: 16,
-          padding: "2rem",
-          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.08)",
-          border: "1px solid #f0f0f0",
-          flexShrink: 0,
-        }}
-      >
-        <h2 style={{ fontSize: 18, marginTop: 0, marginBottom: 24, fontWeight: "700", color: "#111827" }}>Summary</h2>
-        
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 16, marginBottom: 24 }}>
-          <div
-            style={{
-              background: "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)",
-              padding: "1.5rem",
-              borderRadius: 12,
-              border: "1px solid #93c5fd",
-            }}
-          >
-            <div style={{ color: "#1e40af", fontSize: 13, marginBottom: 6, fontWeight: "600" }}>Total Budget</div>
-            <div style={{ fontSize: 24, fontWeight: "800", color: "#1e3a8a" }}>${budgetValue.toFixed(2)}</div>
+          <div className="stat-tile">
+            <div className="stat-tile-label">Total spent</div>
+            <div className="stat-tile-value" style={{ color: total > budgetValue && budgetValue > 0 ? "var(--danger)" : "var(--ink)" }}>
+              €{total.toFixed(2)}
+            </div>
+            <div className="stat-tile-sub">{pct.toFixed(0)}% of budget used</div>
           </div>
-          <div
-            style={{
-              background: "linear-gradient(135deg, #fecaca 0%, #fca5a5 100%)",
-              padding: "1.5rem",
-              borderRadius: 12,
-              border: "1px solid #f87171",
-            }}
-          >
-            <div style={{ color: "#991b1b", fontSize: 13, marginBottom: 6, fontWeight: "600" }}>Total Spent</div>
-            <div style={{ fontSize: 24, fontWeight: "800", color: "#7f1d1d" }}>${total.toFixed(2)}</div>
-          </div>
-          <div
-            style={{
-              background: remaining < 0 
-                ? "linear-gradient(135deg, #fca5a5 0%, #f87171 100%)"
-                : "linear-gradient(135deg, #a7f3d0 0%, #6ee7b7 100%)",
-              padding: "1.5rem",
-              borderRadius: 12,
-              border: remaining < 0 ? "1px solid #f87171" : "1px solid #6ee7b7",
-            }}
-          >
-            <div style={{ color: remaining < 0 ? "#991b1b" : "#065f46", fontSize: 13, marginBottom: 6, fontWeight: "600" }}>Remaining</div>
-            <div style={{ fontSize: 24, fontWeight: "800", color: remaining < 0 ? "#7f1d1d" : "#047857" }}>
-              ${remaining.toFixed(2)}
+          <div className="stat-tile">
+            <div className="stat-tile-label">Remaining</div>
+            <div className="stat-tile-value" style={{ color: remaining < 0 ? "var(--danger)" : "var(--accent)" }}>
+              €{remaining.toFixed(2)}
             </div>
           </div>
         </div>
 
-        {Object.keys(byCategory).length > 0 && (
-          <div style={{ marginBottom: 24, paddingBottom: 24, borderBottom: "2px solid #f3f4f6" }}>
-            <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 14, fontWeight: "700", color: "#6b7280" }}>Breakdown by Category</h3>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
-              {Object.entries(byCategory).map(([cat, value]) => (
-                <div key={cat} style={{
-                  background: "#f9fafb",
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #e5e7eb",
-                }}>
-                  <span style={{ fontSize: 13, fontWeight: "600", color: "#111827" }}>
-                    {cat}:
-                  </span>
-                  <span style={{ fontSize: 13, fontWeight: "700", color: "#3b82f6", marginLeft: 6 }}>
-                    ${Number(value).toFixed(2)}
-                  </span>
-                </div>
-              ))}
+        {/* Progress bar */}
+        {budgetValue > 0 && (
+          <div className="card fade-up" style={{ marginBottom: 20, padding: "16px 24px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 12, color: "var(--ink-3)" }}>Budget usage</span>
+              <span style={{ fontSize: 12, fontWeight: 500, color: pct >= 90 ? "var(--danger)" : pct >= 70 ? "var(--warning)" : "var(--accent)" }}>
+                {pct.toFixed(0)}%
+              </span>
+            </div>
+            <div className="progress-track">
+              <div className="progress-fill" style={{
+                width: `${pct}%`,
+                background: pct >= 90 ? "var(--danger)" : pct >= 70 ? "var(--warning)" : "var(--accent)",
+              }} />
             </div>
           </div>
         )}
 
-        {expenses.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "2rem 1rem", color: "#9ca3af" }}>
-            <p style={{ fontSize: 15 }}>No expenses yet. Add one to get started!</p>
-          </div>
-        ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20, alignItems: "start" }}>
+          {/* Left: expense list */}
           <div>
-            <h3 style={{ marginTop: 0, marginBottom: 16, fontSize: 14, fontWeight: "700", color: "#6b7280" }}>Recent Expenses</h3>
-            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10 }}>
-              {expenses.map((item) => (
-                <li
-                  key={item.id}
-                  style={{
-                    background: "#f9fafb",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 12,
-                    padding: "14px 16px",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: 12,
-                    transition: "all 0.3s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.background = "#f3f4f6";
-                    (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.05)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.background = "#f9fafb";
-                    (e.currentTarget as HTMLElement).style.boxShadow = "none";
-                  }}
-                >
+            {/* Add expense form */}
+            <div className="card fade-up" style={{ marginBottom: 20 }}>
+              <div className="section-heading">Add expense</div>
+              <form onSubmit={addExpense}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 10 }}>
+                  <div>
+                    <label className="field-label">Name</label>
+                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Coffee" />
+                  </div>
+                  <div style={{ width: 120 }}>
+                    <label className="field-label">Amount (€)</label>
+                    <input type="number" value={amount} onChange={e => setAmount(e.target.value)} min="0" step="0.01" placeholder="0.00" />
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
                   <div style={{ flex: 1 }}>
-                    <span style={{ fontSize: 14, fontWeight: "600", color: "#111827" }}>
-                      {item.name}
-                    </span>
-                    <span style={{ fontSize: 12, color: "#9ca3af", marginLeft: 8 }}>
-                      {item.category}
-                    </span>
+                    <label className="field-label">Category</label>
+                    <select value={category} onChange={e => setCategory(e.target.value)}>
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
                   </div>
-                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                    <span style={{ fontSize: 14, fontWeight: "700", color: "#3b82f6" }}>
-                      ${item.amount.toFixed(2)}
-                    </span>
-                    <button
-                      onClick={() => removeExpense(item.id)}
-                      style={{
-                        border: "none",
-                        background: "#fecaca",
-                        color: "#991b1b",
-                        borderRadius: 8,
-                        padding: "6px 12px",
-                        cursor: "pointer",
-                        fontSize: "12px",
-                        fontWeight: "600",
-                        transition: "all 0.3s ease",
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.target as HTMLElement).style.background = "#f87171";
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.target as HTMLElement).style.background = "#fecaca";
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </section>
-      </div>
+                  <button type="submit" className="btn btn-primary" style={{ flexShrink: 0 }}>
+                    Add expense
+                  </button>
+                </div>
+              </form>
+            </div>
 
-      {isSaving && (
-        <div style={{
-          position: "fixed",
-          bottom: 24,
-          right: 24,
-          background: "#111827",
-          color: "#fff",
-          padding: "12px 16px",
-          borderRadius: 10,
-          fontSize: 14,
-          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.2)",
-        }}>
-          ✓ Saving...
+            {/* Expense list */}
+            <div className="card fade-up">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <div className="section-heading" style={{ marginBottom: 0 }}>Recent expenses</div>
+                <span style={{ fontSize: 12, color: "var(--ink-4)" }}>{expenses.length} items</span>
+              </div>
+              {expenses.length === 0 ? (
+                <div className="empty-state">
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <rect x="4" y="8" width="24" height="18" rx="3" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M4 13h24" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M10 18h5M10 21h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                  <p>No expenses yet. Add one above.</p>
+                </div>
+              ) : (
+                <div>
+                  {expenses.map(item => (
+                    <div key={item.id} className="expense-row">
+                      <div style={{
+                        width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                        background: CAT_COLORS[item.category] || "#6b7280",
+                      }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 500, fontSize: 13.5, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {item.name}
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 1 }}>{item.category}</div>
+                      </div>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", fontVariantNumeric: "tabular-nums", marginRight: 12 }}>
+                        €{item.amount.toFixed(2)}
+                      </span>
+                      <button onClick={() => removeExpense(item.id)} className="btn btn-sm" style={{
+                        background: "transparent", border: "none", padding: "4px 6px",
+                        color: "var(--ink-4)", cursor: "pointer", borderRadius: 4,
+                      }}>
+                        <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                          <path d="M2 4h10M5 4V3h4v1M5.5 6.5v4M8.5 6.5v4M3 4l.8 8h6.4L11 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right: sidebar panels */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Budget setting */}
+            <div className="card fade-up">
+              <div className="section-heading">Monthly budget</div>
+              <label className="field-label">Amount (€)</label>
+              <input type="number" value={budget} onChange={e => setBudget(e.target.value)} min="0" step="0.01" placeholder="2000.00" />
+            </div>
+
+            {/* Category breakdown */}
+            {Object.keys(byCategory).length > 0 && (
+              <div className="card fade-up">
+                <div className="section-heading">By category</div>
+                {Object.entries(byCategory).sort((a,b) => b[1]-a[1]).map(([cat, val]) => (
+                  <div key={cat} style={{ marginBottom: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: CAT_COLORS[cat] || "#6b7280" }} />
+                        <span style={{ fontSize: 12.5, color: "var(--ink-2)" }}>{cat}</span>
+                      </div>
+                      <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink)", fontVariantNumeric: "tabular-nums" }}>€{val.toFixed(2)}</span>
+                    </div>
+                    <div className="progress-track">
+                      <div className="progress-fill" style={{
+                        width: `${total > 0 ? (val / total) * 100 : 0}%`,
+                        background: CAT_COLORS[cat] || "#6b7280",
+                      }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      )}
-    </main>
+      </div>
+    </>
   );
 }

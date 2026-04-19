@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/client";
 export default function LoginPage() {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
-
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -15,166 +14,166 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   const normalizedSiteUrl = configuredSiteUrl
-  ? configuredSiteUrl.startsWith("http")
-    ? configuredSiteUrl
-    : `https://${configuredSiteUrl}`
-  : null;
+    ? configuredSiteUrl.startsWith("http") ? configuredSiteUrl : `https://${configuredSiteUrl}`
+    : null;
+
   useEffect(() => {
-    async function checkSession() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (session) {
-        router.replace("/dashboard");
-      }
-    }
-
-    checkSession();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) router.replace("/dashboard");
+    });
   }, [router, supabase]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setMessage("");
-    setLoading(true);
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setMessage(""); setLoading(true);
 
     if (mode === "login") {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-      if (error) {
-        setMessage(error.message);
-        setLoading(false);
-        return;
-      }
-
-      router.push("/dashboard");
-      router.refresh();
-      return;
+      if (error) { setMessage(error.message); setLoading(false); return; }
+      router.push("/dashboard"); router.refresh(); return;
     }
 
-const redirectBaseUrl = normalizedSiteUrl ?? window.location.origin;
+    const redirectBaseUrl = normalizedSiteUrl ?? window.location.origin;
     const redirectUrl = new URL("/auth/callback", redirectBaseUrl);
     redirectUrl.searchParams.set("next", "/dashboard");
-
-    const emailRedirectTo = redirectUrl.toString();
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo,
-      },
-    });
-
-    if (error) {
-      setMessage(error.message);
-      setLoading(false);
-      return;
-    }
-
-    setMessage("Signup complete. Check your email if confirmation is enabled.");
-    setLoading(false);
+    const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirectUrl.toString() } });
+    if (error) { setMessage(error.message); setLoading(false); return; }
+    setMessage("Account created! Check your email to confirm."); setLoading(false);
   }
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        padding: "2rem 1rem",
-      }}
-    >
-      <section
-        style={{
-          width: "100%",
-          maxWidth: 440,
-          borderRadius: 14,
-          border: "1px solid #e5e7eb",
-          background: "#fff",
-          padding: "1.5rem",
-        }}
-      >
-        <h1 style={{ margin: 0, fontSize: 30 }}>Secure Login</h1>
-        <p style={{ marginTop: 8, marginBottom: 18, color: "#4b5563" }}>
-          Sign in with Supabase to access your dashboard.
-        </p>
-
-        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-          <button
-            onClick={() => setMode("login")}
+    <main style={{
+      minHeight: "100vh",
+      background: "#0d0f12",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "2rem",
+    }}>
+      <div style={{ width: "100%", maxWidth: 380 }}>
+        {/* Logo */}
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div
+            aria-label="Money Manager logo"
+            role="img"
             style={{
-              flex: 1,
-              border: "1px solid #d1d5db",
-              borderRadius: 8,
-              padding: "8px 12px",
-              background: mode === "login" ? "#111827" : "#fff",
-              color: mode === "login" ? "#fff" : "#111827",
-              cursor: "pointer",
+              width: 72,
+              height: 72,
+              borderRadius: 12,
+              marginBottom: 12,
+              display: "inline-block",
+              backgroundImage: "url('/favicon.ico')",
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "center",
+              backgroundSize: "220%",
             }}
-            type="button"
-          >
-            Login
-          </button>
-          <button
-            onClick={() => setMode("signup")}
-            style={{
-              flex: 1,
-              border: "1px solid #d1d5db",
-              borderRadius: 8,
-              padding: "8px 12px",
-              background: mode === "signup" ? "#111827" : "#fff",
-              color: mode === "signup" ? "#fff" : "#111827",
-              cursor: "pointer",
-            }}
-            type="button"
-          >
-            Sign up
-          </button>
+          />
+          <div style={{ color: "#fff", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 18 }}>Money Manager</div>
+          <div style={{ color: "#4a5162", fontFamily: "'DM Sans', sans-serif", fontSize: 13, marginTop: 4 }}>
+            {mode === "login" ? "Welcome back" : "Create your account"}
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: "grid", gap: 10 }}>
-          <input
-            required
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="Email"
-            autoComplete="email"
-            style={{ padding: "10px 12px" }}
-          />
-          <input
-            required
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Password"
-            autoComplete={mode === "login" ? "current-password" : "new-password"}
-            minLength={6}
-            style={{ padding: "10px 12px" }}
-          />
+        {/* Card */}
+        <div style={{
+          background: "#14171d",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 16,
+          padding: "28px 28px 24px",
+        }}>
+          {/* Tab toggle */}
+          <div style={{
+            display: "flex", gap: 0,
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.07)",
+            borderRadius: 8,
+            padding: 3,
+            marginBottom: 24,
+          }}>
+            {(["login", "signup"] as const).map(m => (
+              <button key={m} onClick={() => setMode(m)} style={{
+                flex: 1,
+                padding: "8px 12px",
+                border: "none",
+                borderRadius: 6,
+                background: mode === m ? "#fff" : "transparent",
+                color: mode === m ? "#0d0f12" : "#4a5162",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 13, fontWeight: mode === m ? 500 : 400,
+                cursor: "pointer",
+                transition: "all 0.13s",
+              }}>
+                {m === "login" ? "Sign in" : "Sign up"}
+              </button>
+            ))}
+          </div>
 
-          <button
-            disabled={loading}
-            type="submit"
-            style={{
+          <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14 }}>
+            <div>
+              <label style={{ display: "block", marginBottom: 5, fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#8a909e" }}>Email address</label>
+              <input
+                required type="email" value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="you@example.com" autoComplete="email"
+                style={{
+                  width: "100%", padding: "10px 14px",
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 8, color: "#fff",
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 14,
+                  outline: "none",
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", marginBottom: 5, fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#8a909e" }}>Password</label>
+              <input
+                required type="password" value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder={mode === "signup" ? "Min. 6 characters" : "••••••••"}
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                minLength={6}
+                style={{
+                  width: "100%", padding: "10px 14px",
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 8, color: "#fff",
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 14,
+                  outline: "none",
+                }}
+              />
+            </div>
+
+            <button disabled={loading} type="submit" style={{
+              width: "100%",
+              padding: "11px",
+              marginTop: 4,
               border: "none",
               borderRadius: 8,
-              padding: "10px 12px",
-              background: "#111827",
-              color: "#fff",
-              fontWeight: 600,
+              background: loading ? "#2d3748" : "#fff",
+              color: loading ? "#6b7280" : "#0d0f12",
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 14, fontWeight: 600,
               cursor: loading ? "not-allowed" : "pointer",
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
-            {loading ? "Please wait..." : mode === "login" ? "Login" : "Create account"}
-          </button>
-        </form>
+              transition: "all 0.13s",
+            }}>
+              {loading ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
+            </button>
+          </form>
 
-        {message ? (
-          <p style={{ marginTop: 12, color: "#374151", fontSize: 14 }}>{message}</p>
-        ) : null}
-      </section>
+          {message && (
+            <div style={{
+              marginTop: 16, padding: "10px 14px",
+              background: message.includes("created") ? "rgba(22,163,74,0.1)" : "rgba(220,38,38,0.1)",
+              border: `1px solid ${message.includes("created") ? "rgba(22,163,74,0.25)" : "rgba(220,38,38,0.25)"}`,
+              borderRadius: 8, color: message.includes("created") ? "#4ade80" : "#f87171",
+              fontFamily: "'DM Sans', sans-serif", fontSize: 13,
+            }}>
+              {message}
+            </div>
+          )}
+        </div>
+      </div>
     </main>
   );
 }
