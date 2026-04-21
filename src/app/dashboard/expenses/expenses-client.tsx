@@ -48,6 +48,7 @@ export default function ExpensesClient({ userId }: { userId: string }) {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
   const [budget, setBudget] = useState("0");
+  const [savings, setSavings] = useState("0");
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("Food");
@@ -58,8 +59,11 @@ export default function ExpensesClient({ userId }: { userId: string }) {
 
   const total = useMemo(() => expenses.reduce((s, i) => s + i.amount, 0), [expenses]);
   const budgetValue = Number(budget) > 0 ? Number(budget) : 0;
-  const remaining = budgetValue - total;
-  const pct = budgetValue > 0 ? Math.min(100, (total / budgetValue) * 100) : 0;
+  const rawSavings = Number(savings);
+  const savingsValue = Number.isFinite(rawSavings) && rawSavings > 0 ? Math.min(rawSavings, budgetValue) : 0;
+  const spendableBudget = Math.max(0, budgetValue - savingsValue);
+  const remaining = spendableBudget - total;
+  const pct = spendableBudget > 0 ? Math.min(100, (total / spendableBudget) * 100) : 0;
 
   const byCategory = useMemo(() => {
     const m: Record<string, number> = {};
@@ -77,10 +81,12 @@ export default function ExpensesClient({ userId }: { userId: string }) {
       if (data) {
         const n = normalizeRow(data);
         setBudget(n.budget); setExpenses(n.expenses);
+        setSavings(localStorage.getItem(`money-manager:${userId}:savings`) ?? "0");
         clearLegacy(userId); setLoading(false); return;
       }
       const legacy = readLegacy(userId) ?? { budget: "0", expenses: [] };
       setBudget(legacy.budget); setExpenses(legacy.expenses);
+      setSavings(localStorage.getItem(`money-manager:${userId}:savings`) ?? "0");
       const { error: ie } = await supabase.from("vaults").upsert({ user_id: userId, budget: legacy.budget, expenses: legacy.expenses }, { onConflict: "user_id" });
       if (cancelled) return;
       if (ie) setError(ie.message); else clearLegacy(userId);
@@ -101,6 +107,19 @@ export default function ExpensesClient({ userId }: { userId: string }) {
     }, 350);
     return () => window.clearTimeout(t);
   }, [budget, expenses, error, loading, supabase, userId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(`money-manager:${userId}:savings`, savings);
+  }, [savings, userId]);
+
+  useEffect(() => {
+    const currentBudget = Number(budget) > 0 ? Number(budget) : 0;
+    const currentSavings = Number(savings) > 0 ? Number(savings) : 0;
+    if (currentSavings > currentBudget) {
+      setSavings(currentBudget.toString());
+    }
+  }, [budget, savings]);
 
   function addExpense(e: React.FormEvent) {
     e.preventDefault();
@@ -150,20 +169,26 @@ export default function ExpensesClient({ userId }: { userId: string }) {
 
       <div className="content">
         {/* Stats row */}
-        <div className="grid-3 fade-up" style={{ marginBottom: 20 }}>
+        <div className="grid-4 fade-up" style={{ marginBottom: 20 }}>
           <div className="stat-tile">
             <div className="stat-tile-label">Monthly budget</div>
             <div className="stat-tile-value">€{budgetValue.toFixed(2)}</div>
           </div>
           <div className="stat-tile">
-            <div className="stat-tile-label">Total spent</div>
-            <div className="stat-tile-value" style={{ color: total > budgetValue && budgetValue > 0 ? "var(--danger)" : "var(--ink)" }}>
-              €{total.toFixed(2)}
+            <div className="stat-tile-label">Savings</div>
+            <div className="stat-tile-value" style={{ color: "var(--accent)" }}>
+              €{savingsValue.toFixed(2)}
             </div>
-            <div className="stat-tile-sub">{pct.toFixed(0)}% of budget used</div>
           </div>
           <div className="stat-tile">
-            <div className="stat-tile-label">Remaining</div>
+            <div className="stat-tile-label">Total spent</div>
+            <div className="stat-tile-value" style={{ color: total > spendableBudget && spendableBudget > 0 ? "var(--danger)" : "var(--ink)" }}>
+              €{total.toFixed(2)}
+            </div>
+            <div className="stat-tile-sub">{pct.toFixed(0)}% of expense budget used</div>
+          </div>
+          <div className="stat-tile">
+            <div className="stat-tile-label">Remaining for expenses</div>
             <div className="stat-tile-value" style={{ color: remaining < 0 ? "var(--danger)" : "var(--accent)" }}>
               €{remaining.toFixed(2)}
             </div>
@@ -171,10 +196,10 @@ export default function ExpensesClient({ userId }: { userId: string }) {
         </div>
 
         {/* Progress bar */}
-        {budgetValue > 0 && (
+        {spendableBudget > 0 && (
           <div className="card fade-up" style={{ marginBottom: 20, padding: "16px 24px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: "var(--ink-3)" }}>Budget usage</span>
+              <span style={{ fontSize: 12, color: "var(--ink-3)" }}>Expense budget usage</span>
               <span style={{ fontSize: 12, fontWeight: 500, color: pct >= 90 ? "var(--danger)" : pct >= 70 ? "var(--warning)" : "var(--accent)" }}>
                 {pct.toFixed(0)}%
               </span>
@@ -273,6 +298,12 @@ export default function ExpensesClient({ userId }: { userId: string }) {
               <div className="section-heading">Monthly budget</div>
               <label className="field-label">Amount (€)</label>
               <input type="number" value={budget} onChange={e => setBudget(e.target.value)} min="0" step="0.01" placeholder="2000.00" />
+            </div>
+
+            <div className="card fade-up">
+              <div className="section-heading">Savings</div>
+              <label className="field-label">Amount (€)</label>
+              <input type="number" value={savings} onChange={e => setSavings(e.target.value)} min="0" max={budgetValue > 0 ? budgetValue : undefined} step="0.01" placeholder="0.00" /> 
             </div>
 
             {/* Category breakdown */}
