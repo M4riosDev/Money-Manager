@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-type Expense = { id: string; name: string; amount: number; category: string; };
-type FinanceRow = { budget: string; expenses: Expense[]; };
+type Expense = { id: string; name: string; amount: number; category: string };
+type FinanceRow = { budget: number; savings: number; expenses: Expense[] };
 
 const CATEGORIES = ["Food", "Bills", "Transport", "Shopping", "Health", "Other"];
 const LEGACY_KEYS = ["money-manager-expenses","money-manager-budget","money-manager:budget","money-manager:expenses"];
@@ -14,14 +14,30 @@ const CAT_COLORS: Record<string, string> = {
   Shopping: "#f59e0b", Health: "#10b981", Other: "#6b7280",
 };
 
+
+const MAX_SAVES = 20;
+const WINDOW_MS = 60_000;
+
+function useRateLimiter() {
+  const timestamps = useRef<number[]>([]);
+  return useCallback(() => {
+    const now = Date.now();
+    timestamps.current = timestamps.current.filter(t => now - t < WINDOW_MS);
+    if (timestamps.current.length >= MAX_SAVES) return false;
+    timestamps.current.push(now);
+    return true;
+  }, []);
+}
+
 function normalizeRow(v: Partial<FinanceRow> | null | undefined): FinanceRow {
-  if (!v) return { budget: "0", expenses: [] };
+  if (!v) return { budget: 0, savings: 0, expenses: [] };
   return {
-    budget: typeof v.budget === "string" ? v.budget : "0",
+    budget:  Number(v.budget)  > 0 ? Number(v.budget)  : 0,
+    savings: Number(v.savings) > 0 ? Math.min(Number(v.savings), Number(v.budget) || 0) : 0,
     expenses: Array.isArray(v.expenses) ? v.expenses.map(i => ({
-      id: typeof i?.id === "string" ? i.id : crypto.randomUUID(),
-      name: typeof i?.name === "string" ? i.name : "",
-      amount: Number(i?.amount) || 0,
+      id:       typeof i?.id       === "string" ? i.id       : crypto.randomUUID(),
+      name:     typeof i?.name     === "string" ? i.name     : "",
+      amount:   Number(i?.amount)  || 0,
       category: typeof i?.category === "string" ? i.category : "Other",
     })) : [],
   };
@@ -29,41 +45,57 @@ function normalizeRow(v: Partial<FinanceRow> | null | undefined): FinanceRow {
 
 function readLegacy(userId: string): FinanceRow | null {
   if (typeof window === "undefined") return null;
-  const b = localStorage.getItem(`money-manager:${userId}:budget`) ?? localStorage.getItem("money-manager-budget");
+  const b    = localStorage.getItem(`money-manager:${userId}:budget`) ?? localStorage.getItem("money-manager-budget");
   const eRaw = localStorage.getItem(`money-manager:${userId}:expenses`) ?? localStorage.getItem("money-manager-expenses");
+  const sRaw = localStorage.getItem(`money-manager:${userId}:savings`);
   if (!b && !eRaw) return null;
   let e: Expense[] | null = null;
   try { const p = JSON.parse(eRaw ?? ""); e = Array.isArray(p) ? p : null; } catch { e = null; }
-  return normalizeRow({ budget: b ?? "0", expenses: e ?? [] });
+  return normalizeRow({ budget: Number(b) || 0, savings: Number(sRaw) || 0, expenses: e ?? [] });
 }
 
 function clearLegacy(userId: string) {
   if (typeof window === "undefined") return;
   localStorage.removeItem(`money-manager:${userId}:budget`);
   localStorage.removeItem(`money-manager:${userId}:expenses`);
+  localStorage.removeItem(`money-manager:${userId}:savings`);
   LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
 }
 
+async function saveVault(budget: number, savings: number, expenses: Expense[]) {
+  const res = await fetch("/api/vault", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ budget, savings, expenses }),
+  });
+  if (!res.ok) {
+    const { error } = await res.json().catch(() => ({ error: "Unknown error" }));
+    throw new Error(error ?? "Save failed");
+  }
+}
+
 export default function ExpensesClient({ userId }: { userId: string }) {
-  const router = useRouter();
+  const router   = useRouter();
   const [supabase] = useState(() => createClient());
-  const [budget, setBudget] = useState("0");
-  const [savings, setSavings] = useState("0");
-  const [name, setName] = useState("");
-  const [amount, setAmount] = useState("");
+  const canSave  = useRateLimiter();
+
+  const [budget,   setBudget]   = useState(0);
+  const [savings,  setSavings]  = useState(0);
+  const [name,     setName]     = useState("");
+  const [amount,   setAmount]   = useState("");
   const [category, setCategory] = useState("Food");
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
-  const total = useMemo(() => expenses.reduce((s, i) => s + i.amount, 0), [expenses]);
-  const budgetValue = Number(budget) > 0 ? Number(budget) : 0;
-  const rawSavings = Number(savings);
-  const savingsValue = Number.isFinite(rawSavings) && rawSavings > 0 ? Math.min(rawSavings, budgetValue) : 0;
+  const total          = useMemo(() => expenses.reduce((s, i) => s + i.amount, 0), [expenses]);
+  const budgetValue    = budget > 0 ? budget : 0;
+  const savingsValue   = savings > 0 ? Math.min(savings, budgetValue) : 0;
   const spendableBudget = Math.max(0, budgetValue - savingsValue);
-  const remaining = spendableBudget - total;
-  const pct = spendableBudget > 0 ? Math.min(100, (total / spendableBudget) * 100) : 0;
+  const remaining      = spendableBudget - total;
+  const pct            = spendableBudget > 0 ? Math.min(100, (total / spendableBudget) * 100) : 0;
 
   const byCategory = useMemo(() => {
     const m: Record<string, number> = {};
@@ -75,22 +107,28 @@ export default function ExpensesClient({ userId }: { userId: string }) {
     let cancelled = false;
     async function load() {
       setLoading(true); setError("");
-      const { data, error: e } = await supabase.from("vaults").select("budget, expenses").eq("user_id", userId).maybeSingle<FinanceRow>();
+      const { data, error: e } = await supabase
+        .from("vaults")
+        .select("budget, savings, expenses")
+        .eq("user_id", userId)
+        .maybeSingle<FinanceRow>();
       if (cancelled) return;
       if (e) { setError(e.message); setLoading(false); return; }
       if (data) {
         const n = normalizeRow(data);
-        setBudget(n.budget); setExpenses(n.expenses);
-        setSavings(localStorage.getItem(`money-manager:${userId}:savings`) ?? "0");
+        setBudget(n.budget); setSavings(n.savings); setExpenses(n.expenses);
         clearLegacy(userId); setLoading(false); return;
       }
-      const legacy = readLegacy(userId) ?? { budget: "0", expenses: [] };
-      setBudget(legacy.budget); setExpenses(legacy.expenses);
-      setSavings(localStorage.getItem(`money-manager:${userId}:savings`) ?? "0");
-      const { error: ie } = await supabase.from("vaults").upsert({ user_id: userId, budget: legacy.budget, expenses: legacy.expenses }, { onConflict: "user_id" });
-      if (cancelled) return;
-      if (ie) setError(ie.message); else clearLegacy(userId);
-      setLoading(false);
+      // First login — migrate from localStorage if present
+      const legacy = readLegacy(userId) ?? { budget: 0, savings: 0, expenses: [] };
+      setBudget(legacy.budget); setSavings(legacy.savings); setExpenses(legacy.expenses);
+      try {
+        await saveVault(legacy.budget, legacy.savings, legacy.expenses);
+        if (!cancelled) clearLegacy(userId);
+      } catch (ie) {
+        if (!cancelled) setError(ie instanceof Error ? ie.message : "Migration failed");
+      }
+      if (!cancelled) setLoading(false);
     }
     load().catch(() => { if (!cancelled) { setError("Unable to load."); setLoading(false); } });
     return () => { cancelled = true; };
@@ -98,27 +136,22 @@ export default function ExpensesClient({ userId }: { userId: string }) {
 
   useEffect(() => {
     if (loading || error) return;
-    setIsSaving(true);
     const t = window.setTimeout(() => {
-      void (async () => {
-        try { await supabase.from("vaults").upsert({ user_id: userId, budget, expenses }, { onConflict: "user_id" }); }
-        finally { setIsSaving(false); }
-      })();
+      if (!canSave()) {
+        setSaveError("Saving too frequently — please slow down.");
+        return;
+      }
+      setSaveError("");
+      setIsSaving(true);
+      saveVault(budget, savings, expenses)
+        .catch(e => setSaveError(e instanceof Error ? e.message : "Save failed"))
+        .finally(() => setIsSaving(false));
     }, 350);
     return () => window.clearTimeout(t);
-  }, [budget, expenses, error, loading, supabase, userId]);
+  }, [budget, savings, expenses, error, loading, canSave]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(`money-manager:${userId}:savings`, savings);
-  }, [savings, userId]);
-
-  useEffect(() => {
-    const currentBudget = Number(budget) > 0 ? Number(budget) : 0;
-    const currentSavings = Number(savings) > 0 ? Number(savings) : 0;
-    if (currentSavings > currentBudget) {
-      setSavings(currentBudget.toString());
-    }
+    if (savings > budget) setSavings(budget);
   }, [budget, savings]);
 
   function addExpense(e: React.FormEvent) {
@@ -158,9 +191,8 @@ export default function ExpensesClient({ userId }: { userId: string }) {
       <div className="topbar">
         <div className="topbar-left">
           <span className="topbar-title">Expenses</span>
-          {isSaving && (
-            <span style={{ fontSize: 11, color: "#b2b9c4", fontFamily: "var(--font-mono)" }}>● saving…</span>
-          )}
+          {isSaving && <span style={{ fontSize: 11, color: "#b2b9c4", fontFamily: "var(--font-mono)" }}>● saving…</span>}
+          {saveError && <span style={{ fontSize: 11, color: "var(--danger)" }}>⚠ {saveError}</span>}
         </div>
         <div className="topbar-right">
           <button onClick={logout} className="btn btn-ghost btn-sm">Sign out</button>
@@ -176,9 +208,7 @@ export default function ExpensesClient({ userId }: { userId: string }) {
           </div>
           <div className="stat-tile">
             <div className="stat-tile-label">Savings</div>
-            <div className="stat-tile-value" style={{ color: "var(--accent)" }}>
-              €{savingsValue.toFixed(2)}
-            </div>
+            <div className="stat-tile-value" style={{ color: "var(--accent)" }}>€{savingsValue.toFixed(2)}</div>
           </div>
           <div className="stat-tile">
             <div className="stat-tile-label">Total spent</div>
@@ -216,18 +246,17 @@ export default function ExpensesClient({ userId }: { userId: string }) {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20, alignItems: "start" }}>
           {/* Left: expense list */}
           <div>
-            {/* Add expense form */}
             <div className="card fade-up" style={{ marginBottom: 20 }}>
               <div className="section-heading">Add expense</div>
               <form onSubmit={addExpense}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 10 }}>
                   <div>
                     <label className="field-label">Name</label>
-                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Coffee" />
+                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Coffee" maxLength={100} />
                   </div>
                   <div style={{ width: 120 }}>
                     <label className="field-label">Amount (€)</label>
-                    <input type="number" value={amount} onChange={e => setAmount(e.target.value)} min="0" step="0.01" placeholder="0.00" />
+                    <input type="number" value={amount} onChange={e => setAmount(e.target.value)} min="0.01" max="1000000" step="0.01" placeholder="0.00" />
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
@@ -237,14 +266,11 @@ export default function ExpensesClient({ userId }: { userId: string }) {
                       {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
-                  <button type="submit" className="btn btn-primary" style={{ flexShrink: 0 }}>
-                    Add expense
-                  </button>
+                  <button type="submit" className="btn btn-primary" style={{ flexShrink: 0 }}>Add expense</button>
                 </div>
               </form>
             </div>
 
-            {/* Expense list */}
             <div className="card fade-up">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <div className="section-heading" style={{ marginBottom: 0 }}>Recent expenses</div>
@@ -263,10 +289,7 @@ export default function ExpensesClient({ userId }: { userId: string }) {
                 <div>
                   {expenses.map(item => (
                     <div key={item.id} className="expense-row">
-                      <div style={{
-                        width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                        background: CAT_COLORS[item.category] || "#6b7280",
-                      }} />
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: CAT_COLORS[item.category] || "#6b7280" }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 500, fontSize: 13.5, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {item.name}
@@ -291,22 +314,20 @@ export default function ExpensesClient({ userId }: { userId: string }) {
             </div>
           </div>
 
-          {/* Right: sidebar panels */}
+          {/* Right sidebar */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {/* Budget setting */}
             <div className="card fade-up">
               <div className="section-heading">Monthly budget</div>
               <label className="field-label">Amount (€)</label>
-              <input type="number" value={budget} onChange={e => setBudget(e.target.value)} min="0" step="0.01" placeholder="2000.00" />
+              <input type="number" value={budget} onChange={e => setBudget(Math.max(0, Number(e.target.value)))} min="0" max="10000000" step="0.01" placeholder="2000.00" />
             </div>
 
             <div className="card fade-up">
               <div className="section-heading">Savings</div>
               <label className="field-label">Amount (€)</label>
-              <input type="number" value={savings} onChange={e => setSavings(e.target.value)} min="0" max={budgetValue > 0 ? budgetValue : undefined} step="0.01" placeholder="0.00" /> 
+              <input type="number" value={savings} onChange={e => setSavings(Math.max(0, Number(e.target.value)))} min="0" max={budgetValue > 0 ? budgetValue : undefined} step="0.01" placeholder="0.00" />
             </div>
 
-            {/* Category breakdown */}
             {Object.keys(byCategory).length > 0 && (
               <div className="card fade-up">
                 <div className="section-heading">By category</div>
@@ -320,10 +341,7 @@ export default function ExpensesClient({ userId }: { userId: string }) {
                       <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink)", fontVariantNumeric: "tabular-nums" }}>€{val.toFixed(2)}</span>
                     </div>
                     <div className="progress-track">
-                      <div className="progress-fill" style={{
-                        width: `${total > 0 ? (val / total) * 100 : 0}%`,
-                        background: CAT_COLORS[cat] || "#6b7280",
-                      }} />
+                      <div className="progress-fill" style={{ width: `${total > 0 ? (val / total) * 100 : 0}%`, background: CAT_COLORS[cat] || "#6b7280" }} />
                     </div>
                   </div>
                 ))}
