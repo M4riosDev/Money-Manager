@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { DEFAULT_CURRENCY, formatMoney, normalizeCurrency, type SupportedCurrency } from "@/lib/currency";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 type Expense = {
@@ -13,13 +14,14 @@ type Expense = {
 };
 
 type FinanceRow = {
-  budget: string;
+  currency: string;
   expenses: Expense[];
 };
 
 export default function SpendingCategoryPage() {
   const [supabase] = useState(() => createClient());
   const [userId, setUserId] = useState<string | null>(null);
+  const [currency, setCurrency] = useState<SupportedCurrency>(DEFAULT_CURRENCY);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,11 +41,12 @@ export default function SpendingCategoryPage() {
     const loadData = async () => {
       const { data } = await supabase
         .from("vaults")
-        .select("expenses")
+        .select("currency, expenses")
         .eq("user_id", userId)
         .maybeSingle<FinanceRow>();
 
       if (data) {
+        setCurrency(normalizeCurrency(data.currency));
         setExpenses(Array.isArray(data.expenses) ? data.expenses : []);
       }
       setLoading(false);
@@ -128,7 +131,7 @@ export default function SpendingCategoryPage() {
                     {category}
                   </div>
                   <div style={{ fontSize: 20, fontWeight: 700 }}>
-                    ${Number(amount).toFixed(2)}
+                    {formatMoney(Number(amount), currency)}
                   </div>
                   <div style={{ color: "#9ca3af", fontSize: 12, marginTop: 4 }}>
                     {((Number(amount) / total) * 100).toFixed(1)}%
@@ -142,7 +145,7 @@ export default function SpendingCategoryPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="category" />
                 <YAxis />
-                <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
+                <Tooltip formatter={(value) => formatMoney(Number(value), currency)} />
                 <Bar dataKey="amount" fill="#10b981" />
               </BarChart>
             </ResponsiveContainer>

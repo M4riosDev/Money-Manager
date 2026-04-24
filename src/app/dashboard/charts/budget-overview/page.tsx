@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { DEFAULT_CURRENCY, formatMoney, normalizeCurrency, type SupportedCurrency } from "@/lib/currency";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 type Expense = {
@@ -14,6 +15,7 @@ type Expense = {
 
 type FinanceRow = {
   budget: string;
+  currency: string;
   expenses: Expense[];
 };
 
@@ -21,6 +23,7 @@ export default function BudgetOverviewPage() {
   const [supabase] = useState(() => createClient());
   const [userId, setUserId] = useState<string | null>(null);
   const [budget, setBudget] = useState(0);
+  const [currency, setCurrency] = useState<SupportedCurrency>(DEFAULT_CURRENCY);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -40,12 +43,13 @@ export default function BudgetOverviewPage() {
     const loadData = async () => {
       const { data } = await supabase
         .from("vaults")
-        .select("budget, expenses")
+        .select("budget, currency, expenses")
         .eq("user_id", userId)
         .maybeSingle<FinanceRow>();
 
       if (data) {
         setBudget(Number(data.budget) || 0);
+        setCurrency(normalizeCurrency(data.currency));
         setExpenses(Array.isArray(data.expenses) ? data.expenses : []);
       }
       setLoading(false);
@@ -118,7 +122,7 @@ export default function BudgetOverviewPage() {
             }}
           >
             <div style={{ color: "#6b7280", fontSize: 14, marginBottom: 4 }}>Total Budget</div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>${budget.toFixed(2)}</div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>{formatMoney(budget, currency)}</div>
           </div>
           <div
             style={{
@@ -129,7 +133,7 @@ export default function BudgetOverviewPage() {
             }}
           >
             <div style={{ color: "#6b7280", fontSize: 14, marginBottom: 4 }}>Total Spent</div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>${total.toFixed(2)}</div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>{formatMoney(total, currency)}</div>
           </div>
           <div
             style={{
@@ -147,7 +151,7 @@ export default function BudgetOverviewPage() {
                 color: remaining < 0 ? "#b91c1c" : "#065f46",
               }}
             >
-              ${remaining.toFixed(2)}
+              {formatMoney(remaining, currency)}
             </div>
           </div>
         </div>
@@ -157,7 +161,7 @@ export default function BudgetOverviewPage() {
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="name" />
             <YAxis />
-            <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
+            <Tooltip formatter={(value) => formatMoney(Number(value), currency)} />
             <Bar dataKey="value" fill="#3b82f6" />
           </BarChart>
         </ResponsiveContainer>

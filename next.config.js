@@ -1,4 +1,3 @@
-/** @type {import('next').NextConfig} */
 const productionOrigin = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL;
 
 const allowedOrigins = ["localhost:3000"];
@@ -13,20 +12,14 @@ if (productionOrigin) {
   }
 }
 
-// ── Content-Security-Policy ───────────────────────────────────────────────────
-// Adjust script-src / connect-src if you add third-party scripts or APIs.
 const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
   ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host
   : "";
 
 const cspParts = [
   "default-src 'self'",
-  // Next.js requires 'unsafe-inline' for its inline style injection in dev;
-  // in production you can tighten this with a nonce or hash if needed.
   "style-src 'self' 'unsafe-inline'",
-  // No external scripts — remove 'unsafe-eval' once you verify no eval usage.
   "script-src 'self' 'unsafe-inline'",
-  // Allow fetch to Supabase only
   supabaseHost
     ? `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}`
     : "connect-src 'self'",
@@ -37,7 +30,6 @@ const cspParts = [
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
-  // Upgrade HTTP → HTTPS automatically
   "upgrade-insecure-requests",
 ];
 
@@ -67,7 +59,6 @@ const securityHeaders = [
     value: "camera=(), microphone=(), geolocation=()",
   },
   {
-    // 1 year HSTS, include subdomains, preload-ready
     key: "Strict-Transport-Security",
     value: "max-age=31536000; includeSubDomains; preload",
   },
@@ -82,7 +73,6 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // Apply to all routes
         source: "/(.*)",
         headers: securityHeaders,
       },

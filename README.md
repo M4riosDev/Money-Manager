@@ -45,7 +45,7 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 Open http://localhost:3000
 
-To create the database table and security policies, run the SQL in [supabase/finance_vault.sql](supabase/finance_vault.sql) in the Supabase SQL editor.
+To create/update the database table, constraints, permissions, and RLS policies in one step, run [supabase/database.sql](supabase/database.sql) in the Supabase SQL editor.
 
 ## App Routes
 

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { DEFAULT_CURRENCY, formatMoney, normalizeCurrency, type SupportedCurrency } from "@/lib/currency";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 type Expense = {
@@ -13,7 +14,7 @@ type Expense = {
 };
 
 type FinanceRow = {
-  budget: string;
+  currency: string;
   expenses: Expense[];
 };
 
@@ -22,6 +23,7 @@ const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"
 export default function ExpenseDistributionPage() {
   const [supabase] = useState(() => createClient());
   const [userId, setUserId] = useState<string | null>(null);
+  const [currency, setCurrency] = useState<SupportedCurrency>(DEFAULT_CURRENCY);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -41,11 +43,12 @@ export default function ExpenseDistributionPage() {
     const loadData = async () => {
       const { data } = await supabase
         .from("vaults")
-        .select("expenses")
+        .select("currency, expenses")
         .eq("user_id", userId)
         .maybeSingle<FinanceRow>();
 
       if (data) {
+        setCurrency(normalizeCurrency(data.currency));
         setExpenses(Array.isArray(data.expenses) ? data.expenses : []);
       }
       setLoading(false);
@@ -128,7 +131,7 @@ export default function ExpenseDistributionPage() {
                   <div style={{ color: "#6b7280", fontSize: 14, marginBottom: 4 }}>
                     {item.name}
                   </div>
-                  <div style={{ fontSize: 20, fontWeight: 700 }}>${item.value}</div>
+                  <div style={{ fontSize: 20, fontWeight: 700 }}>{formatMoney(item.value, currency)}</div>
                 </div>
               ))}
             </div>
@@ -140,7 +143,7 @@ export default function ExpenseDistributionPage() {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, value }) => `${name}: $${value}`}
+                  label={({ name, value }) => `${name}: ${formatMoney(Number(value), currency)}`}
                   outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"
@@ -149,7 +152,7 @@ export default function ExpenseDistributionPage() {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
+                <Tooltip formatter={(value) => formatMoney(Number(value), currency)} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>

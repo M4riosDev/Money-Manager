@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { normalizeCurrency } from "@/lib/currency";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const MAX_EXPENSES       = 500;
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
   if (!body || typeof body !== "object" || Array.isArray(body))
     return err("Body must be a JSON object");
 
-  const { budget, savings, expenses } = body as Record<string, unknown>;
+  const { budget, savings, expenses, currency } = body as Record<string, unknown>;
 
   const budgetNum = Number(budget);
   if (!Number.isFinite(budgetNum) || budgetNum < 0 || budgetNum > MAX_BUDGET)
@@ -93,6 +94,8 @@ export async function POST(req: NextRequest) {
     return err(e instanceof Error ? e.message : "Invalid expenses");
   }
 
+  const cleanCurrency = normalizeCurrency(currency);
+
   const { error: dbErr } = await supabase
     .from("vaults")
     .upsert(
@@ -100,6 +103,7 @@ export async function POST(req: NextRequest) {
         user_id:  user.id,
         budget:   budgetNum,
         savings:  savingsNum,
+        currency: cleanCurrency,
         expenses: cleanExpenses,
       },
       { onConflict: "user_id" }

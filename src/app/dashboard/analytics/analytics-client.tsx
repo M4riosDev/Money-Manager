@@ -2,22 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { DEFAULT_CURRENCY, formatMoney, normalizeCurrency, type SupportedCurrency } from "@/lib/currency";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from "recharts";
 
 type Expense = { id: string; name: string; amount: number; category: string; };
-type FinanceRow = { budget: string; expenses: Expense[]; };
+type FinanceRow = { budget: string; currency: string; expenses: Expense[]; };
 
 const COLORS = ["#3b82f6", "#16a34a", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label, currency }: any) => {
   if (active && payload?.length) {
     return (
       <div style={{ background: "#fff", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", boxShadow: "0 4px 16px rgba(0,0,0,0.08)", fontSize: 13 }}>
         {label && <div style={{ color: "var(--ink-3)", marginBottom: 4, fontSize: 11 }}>{label}</div>}
-        <div style={{ fontWeight: 600, color: "var(--ink)" }}>€{Number(payload[0].value).toFixed(2)}</div>
+        <div style={{ fontWeight: 600, color: "var(--ink)" }}>{formatMoney(Number(payload[0].value), currency)}</div>
       </div>
     );
   }
@@ -27,13 +28,15 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function AnalyticsClient({ userId }: { userId: string }) {
   const [supabase] = useState(() => createClient());
   const [budget, setBudget] = useState(0);
+  const [currency, setCurrency] = useState<SupportedCurrency>(DEFAULT_CURRENCY);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from("vaults").select("budget, expenses").eq("user_id", userId).maybeSingle<FinanceRow>().then(({ data }) => {
+    supabase.from("vaults").select("budget, currency, expenses").eq("user_id", userId).maybeSingle<FinanceRow>().then(({ data }) => {
       if (data) {
         setBudget(Number(data.budget) || 0);
+        setCurrency(normalizeCurrency(data.currency));
         setExpenses(Array.isArray(data.expenses) ? data.expenses : []);
       }
       setLoading(false);
@@ -78,15 +81,15 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
         <div className="grid-3 fade-up" style={{ marginBottom: 20 }}>
           <div className="stat-tile">
             <div className="stat-tile-label">Total budget</div>
-            <div className="stat-tile-value">€{budget.toFixed(2)}</div>
+            <div className="stat-tile-value">{formatMoney(budget, currency)}</div>
           </div>
           <div className="stat-tile">
             <div className="stat-tile-label">Total spent</div>
-            <div className="stat-tile-value" style={{ color: total > budget && budget > 0 ? "var(--danger)" : "var(--ink)" }}>€{total.toFixed(2)}</div>
+            <div className="stat-tile-value" style={{ color: total > budget && budget > 0 ? "var(--danger)" : "var(--ink)" }}>{formatMoney(total, currency)}</div>
           </div>
           <div className="stat-tile">
             <div className="stat-tile-label">Remaining</div>
-            <div className="stat-tile-value" style={{ color: remaining < 0 ? "var(--danger)" : "var(--accent)" }}>€{remaining.toFixed(2)}</div>
+            <div className="stat-tile-value" style={{ color: remaining < 0 ? "var(--danger)" : "var(--accent)" }}>{formatMoney(remaining, currency)}</div>
           </div>
         </div>
 
@@ -110,8 +113,8 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
                 <BarChart data={overviewData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f4" vertical={false} />
                   <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#7a8394" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#b2b9c4" }} axisLine={false} tickLine={false} tickFormatter={v => `€${v}`} />
-                  <Tooltip content={<CustomTooltip />} />
+                  <YAxis tick={{ fontSize: 11, fill: "#b2b9c4" }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(Number(v), currency)} />
+                  <Tooltip content={<CustomTooltip currency={currency} />} />
                   <Bar dataKey="value" radius={[6,6,0,0]}>
                     {overviewData.map((entry, i) => (
                       <Cell key={i} fill={i === 0 ? "#e3e5ea" : i === 1 ? "#0d0f12" : "#16a34a"} />
@@ -128,9 +131,9 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={barData} layout="vertical" margin={{ top: 0, right: 10, left: 20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f4" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 11, fill: "#b2b9c4" }} axisLine={false} tickLine={false} tickFormatter={v => `€${v}`} />
+                    <XAxis type="number" tick={{ fontSize: 11, fill: "#b2b9c4" }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(Number(v), currency)} />
                     <YAxis type="category" dataKey="category" tick={{ fontSize: 12, fill: "#7a8394" }} axisLine={false} tickLine={false} width={70} />
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip content={<CustomTooltip currency={currency} />} />
                     <Bar dataKey="amount" radius={[0,4,4,0]}>
                       {barData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Bar>
@@ -146,7 +149,7 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
                     <Pie data={pieData} cx="50%" cy="45%" outerRadius={90} innerRadius={50} dataKey="value" paddingAngle={2}>
                       {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
-                    <Tooltip formatter={(v: any) => `€${Number(v).toFixed(2)}`} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }} />
+                    <Tooltip formatter={(v: any) => formatMoney(Number(v), currency)} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }} />
                     <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
                   </PieChart>
                 </ResponsiveContainer>
@@ -162,7 +165,7 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
                     <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS[i % COLORS.length], flexShrink: 0 }} />
                     <span style={{ flex: 1, fontSize: 13, color: "var(--ink-2)" }}>{cat}</span>
                     <span style={{ fontSize: 12, color: "var(--ink-4)" }}>{total > 0 ? ((val/total)*100).toFixed(1) : 0}%</span>
-                    <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)", fontVariantNumeric: "tabular-nums", minWidth: 80, textAlign: "right" }}>€{val.toFixed(2)}</span>
+                    <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)", fontVariantNumeric: "tabular-nums", minWidth: 80, textAlign: "right" }}>{formatMoney(val, currency)}</span>
                   </div>
                 ))}
               </div>

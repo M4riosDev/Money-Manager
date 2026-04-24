@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { DEFAULT_CURRENCY, SUPPORTED_CURRENCIES, formatMoney, normalizeCurrency, type SupportedCurrency } from "@/lib/currency";
 
 type Expense = { id: string; name: string; amount: number; category: string };
-type FinanceRow = { budget: number; savings: number; expenses: Expense[] };
+type FinanceRow = { budget: number; savings: number; currency: string; expenses: Expense[] };
+type NormalizedFinanceRow = { budget: number; savings: number; currency: SupportedCurrency; expenses: Expense[] };
 
 const CATEGORIES = ["Food", "Bills", "Transport", "Shopping", "Health", "Other"];
 const LEGACY_KEYS = ["money-manager-expenses","money-manager-budget","money-manager:budget","money-manager:expenses"];
@@ -29,11 +31,12 @@ function useRateLimiter() {
   }, []);
 }
 
-function normalizeRow(v: Partial<FinanceRow> | null | undefined): FinanceRow {
-  if (!v) return { budget: 0, savings: 0, expenses: [] };
+function normalizeRow(v: Partial<FinanceRow> | null | undefined): NormalizedFinanceRow {
+  if (!v) return { budget: 0, savings: 0, currency: DEFAULT_CURRENCY, expenses: [] };
   return {
     budget:  Number(v.budget)  > 0 ? Number(v.budget)  : 0,
     savings: Number(v.savings) > 0 ? Math.min(Number(v.savings), Number(v.budget) || 0) : 0,
+    currency: normalizeCurrency(v.currency),
     expenses: Array.isArray(v.expenses) ? v.expenses.map(i => ({
       id:       typeof i?.id       === "string" ? i.id       : crypto.randomUUID(),
       name:     typeof i?.name     === "string" ? i.name     : "",
@@ -43,7 +46,7 @@ function normalizeRow(v: Partial<FinanceRow> | null | undefined): FinanceRow {
   };
 }
 
-function readLegacy(userId: string): FinanceRow | null {
+function readLegacy(userId: string): NormalizedFinanceRow | null {
   if (typeof window === "undefined") return null;
   const b    = localStorage.getItem(`money-manager:${userId}:budget`) ?? localStorage.getItem("money-manager-budget");
   const eRaw = localStorage.getItem(`money-manager:${userId}:expenses`) ?? localStorage.getItem("money-manager-expenses");
@@ -51,7 +54,7 @@ function readLegacy(userId: string): FinanceRow | null {
   if (!b && !eRaw) return null;
   let e: Expense[] | null = null;
   try { const p = JSON.parse(eRaw ?? ""); e = Array.isArray(p) ? p : null; } catch { e = null; }
-  return normalizeRow({ budget: Number(b) || 0, savings: Number(sRaw) || 0, expenses: e ?? [] });
+  return normalizeRow({ budget: Number(b) || 0, savings: Number(sRaw) || 0, currency: DEFAULT_CURRENCY, expenses: e ?? [] });
 }
 
 function clearLegacy(userId: string) {
@@ -62,11 +65,11 @@ function clearLegacy(userId: string) {
   LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
 }
 
-async function saveVault(budget: number, savings: number, expenses: Expense[]) {
+async function saveVault(budget: number, savings: number, currency: SupportedCurrency, expenses: Expense[]) {
   const res = await fetch("/api/vault", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ budget, savings, expenses }),
+    body: JSON.stringify({ budget, savings, currency, expenses }),
   });
   if (!res.ok) {
     const { error } = await res.json().catch(() => ({ error: "Unknown error" }));
@@ -81,6 +84,7 @@ export default function ExpensesClient({ userId }: { userId: string }) {
 
   const [budget,   setBudget]   = useState(0);
   const [savings,  setSavings]  = useState(0);
+  const [currency, setCurrency] = useState<SupportedCurrency>(DEFAULT_CURRENCY);
   const [name,     setName]     = useState("");
   const [amount,   setAmount]   = useState("");
   const [category, setCategory] = useState("Food");
@@ -109,21 +113,21 @@ export default function ExpensesClient({ userId }: { userId: string }) {
       setLoading(true); setError("");
       const { data, error: e } = await supabase
         .from("vaults")
-        .select("budget, savings, expenses")
+        .select("budget, savings, currency, expenses")
         .eq("user_id", userId)
         .maybeSingle<FinanceRow>();
       if (cancelled) return;
       if (e) { setError(e.message); setLoading(false); return; }
       if (data) {
         const n = normalizeRow(data);
-        setBudget(n.budget); setSavings(n.savings); setExpenses(n.expenses);
+        setBudget(n.budget); setSavings(n.savings); setCurrency(n.currency); setExpenses(n.expenses);
         clearLegacy(userId); setLoading(false); return;
       }
       // First login — migrate from localStorage if present
-      const legacy = readLegacy(userId) ?? { budget: 0, savings: 0, expenses: [] };
-      setBudget(legacy.budget); setSavings(legacy.savings); setExpenses(legacy.expenses);
+      const legacy = readLegacy(userId) ?? { budget: 0, savings: 0, currency: DEFAULT_CURRENCY, expenses: [] };
+      setBudget(legacy.budget); setSavings(legacy.savings); setCurrency(legacy.currency); setExpenses(legacy.expenses);
       try {
-        await saveVault(legacy.budget, legacy.savings, legacy.expenses);
+        await saveVault(legacy.budget, legacy.savings, legacy.currency, legacy.expenses);
         if (!cancelled) clearLegacy(userId);
       } catch (ie) {
         if (!cancelled) setError(ie instanceof Error ? ie.message : "Migration failed");
@@ -143,12 +147,12 @@ export default function ExpensesClient({ userId }: { userId: string }) {
       }
       setSaveError("");
       setIsSaving(true);
-      saveVault(budget, savings, expenses)
+      saveVault(budget, savings, currency, expenses)
         .catch(e => setSaveError(e instanceof Error ? e.message : "Save failed"))
         .finally(() => setIsSaving(false));
     }, 350);
     return () => window.clearTimeout(t);
-  }, [budget, savings, expenses, error, loading, canSave]);
+  }, [budget, savings, currency, expenses, error, loading, canSave]);
 
   useEffect(() => {
     if (savings > budget) setSavings(budget);
@@ -204,23 +208,23 @@ export default function ExpensesClient({ userId }: { userId: string }) {
         <div className="grid-4 fade-up" style={{ marginBottom: 20 }}>
           <div className="stat-tile">
             <div className="stat-tile-label">Monthly budget</div>
-            <div className="stat-tile-value">€{budgetValue.toFixed(2)}</div>
+            <div className="stat-tile-value">{formatMoney(budgetValue, currency)}</div>
           </div>
           <div className="stat-tile">
             <div className="stat-tile-label">Savings</div>
-            <div className="stat-tile-value" style={{ color: "var(--accent)" }}>€{savingsValue.toFixed(2)}</div>
+            <div className="stat-tile-value" style={{ color: "var(--accent)" }}>{formatMoney(savingsValue, currency)}</div>
           </div>
           <div className="stat-tile">
             <div className="stat-tile-label">Total spent</div>
             <div className="stat-tile-value" style={{ color: total > spendableBudget && spendableBudget > 0 ? "var(--danger)" : "var(--ink)" }}>
-              €{total.toFixed(2)}
+              {formatMoney(total, currency)}
             </div>
             <div className="stat-tile-sub">{pct.toFixed(0)}% of expense budget used</div>
           </div>
           <div className="stat-tile">
             <div className="stat-tile-label">Remaining for expenses</div>
             <div className="stat-tile-value" style={{ color: remaining < 0 ? "var(--danger)" : "var(--accent)" }}>
-              €{remaining.toFixed(2)}
+              {formatMoney(remaining, currency)}
             </div>
           </div>
         </div>
@@ -255,7 +259,7 @@ export default function ExpensesClient({ userId }: { userId: string }) {
                     <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Coffee" maxLength={100} />
                   </div>
                   <div style={{ width: 120 }}>
-                    <label className="field-label">Amount (€)</label>
+                    <label className="field-label">Amount ({currency})</label>
                     <input type="number" value={amount} onChange={e => setAmount(e.target.value)} min="0.01" max="1000000" step="0.01" placeholder="0.00" />
                   </div>
                 </div>
@@ -297,7 +301,7 @@ export default function ExpensesClient({ userId }: { userId: string }) {
                         <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 1 }}>{item.category}</div>
                       </div>
                       <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", fontVariantNumeric: "tabular-nums", marginRight: 12 }}>
-                        €{item.amount.toFixed(2)}
+                        {formatMoney(item.amount, currency)}
                       </span>
                       <button onClick={() => removeExpense(item.id)} className="btn btn-sm" style={{
                         background: "transparent", border: "none", padding: "4px 6px",
@@ -318,13 +322,21 @@ export default function ExpensesClient({ userId }: { userId: string }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div className="card fade-up">
               <div className="section-heading">Monthly budget</div>
-              <label className="field-label">Amount (€)</label>
+              <label className="field-label">Amount ({currency})</label>
               <input type="number" value={budget} onChange={e => setBudget(Math.max(0, Number(e.target.value)))} min="0" max="10000000" step="0.01" placeholder="2000.00" />
             </div>
 
             <div className="card fade-up">
+              <div className="section-heading">Currency</div>
+              <label className="field-label">Code</label>
+              <select value={currency} onChange={e => setCurrency(normalizeCurrency(e.target.value))}>
+                {SUPPORTED_CURRENCIES.map(code => <option key={code} value={code}>{code}</option>)}
+              </select>
+            </div>
+
+            <div className="card fade-up">
               <div className="section-heading">Savings</div>
-              <label className="field-label">Amount (€)</label>
+              <label className="field-label">Amount ({currency})</label>
               <input type="number" value={savings} onChange={e => setSavings(Math.max(0, Number(e.target.value)))} min="0" max={budgetValue > 0 ? budgetValue : undefined} step="0.01" placeholder="0.00" />
             </div>
 
@@ -338,7 +350,7 @@ export default function ExpensesClient({ userId }: { userId: string }) {
                         <div style={{ width: 8, height: 8, borderRadius: "50%", background: CAT_COLORS[cat] || "#6b7280" }} />
                         <span style={{ fontSize: 12.5, color: "var(--ink-2)" }}>{cat}</span>
                       </div>
-                      <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink)", fontVariantNumeric: "tabular-nums" }}>€{val.toFixed(2)}</span>
+                      <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink)", fontVariantNumeric: "tabular-nums" }}>{formatMoney(val, currency)}</span>
                     </div>
                     <div className="progress-track">
                       <div className="progress-fill" style={{ width: `${total > 0 ? (val / total) * 100 : 0}%`, background: CAT_COLORS[cat] || "#6b7280" }} />
