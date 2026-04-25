@@ -2,6 +2,7 @@ create table if not exists public.vaults (
   user_id uuid primary key references auth.users(id) on delete cascade,
   budget numeric(12,2) not null default 1500,
   savings numeric(12,2) not null default 0,
+  monthly_income numeric(12,2) not null default 0,
   currency text not null default 'EUR',
   expenses jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
@@ -20,10 +21,21 @@ alter table public.vaults
   using savings::numeric(12,2);
 
 alter table public.vaults
+  alter column monthly_income type numeric(12,2)
+  using monthly_income::numeric(12,2);
+
+alter table public.vaults
   alter column budget set default 1500;
 
 alter table public.vaults
   alter column savings set default 0;
+
+alter table public.vaults
+  alter column monthly_income set default 0;
+
+update public.vaults
+set monthly_income = coalesce(monthly_income, 0)
+where monthly_income is null;
 
 update public.vaults
 set currency = upper(trim(coalesce(currency, 'EUR')))
@@ -48,6 +60,12 @@ alter table public.vaults
 
 alter table public.vaults
   add constraint vaults_savings_non_negative check (savings >= 0);
+
+alter table public.vaults
+  drop constraint if exists vaults_monthly_income_non_negative;
+
+alter table public.vaults
+  add constraint vaults_monthly_income_non_negative check (monthly_income >= 0);
 
 alter table public.vaults
   drop constraint if exists vaults_currency_allowed;

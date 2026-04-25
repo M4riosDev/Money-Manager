@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { DEFAULT_CURRENCY, SUPPORTED_CURRENCIES, formatMoney, normalizeCurrency, type SupportedCurrency } from "@/lib/currency";
+import { DEFAULT_CURRENCY, formatMoney, normalizeCurrency, type SupportedCurrency } from "@/lib/currency";
 
 type Expense = { id: string; name: string; amount: number; category: string };
 type FinanceRow = { budget: number; savings: number; currency: string; expenses: Expense[] };
@@ -328,10 +328,9 @@ export default function ExpensesClient({ userId }: { userId: string }) {
 
             <div className="card fade-up">
               <div className="section-heading">Currency</div>
-              <label className="field-label">Code</label>
-              <select value={currency} onChange={e => setCurrency(normalizeCurrency(e.target.value))}>
-                {SUPPORTED_CURRENCIES.map(code => <option key={code} value={code}>{code}</option>)}
-              </select>
+              <div style={{ fontSize: 12.5, color: "var(--ink-4)", lineHeight: 1.5 }}>
+                Managed from Settings. This page only reads the current currency.
+              </div>
             </div>
 
             <div className="card fade-up">
