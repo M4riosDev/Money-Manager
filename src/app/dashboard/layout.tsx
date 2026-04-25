@@ -49,12 +49,12 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
         <div className="sidebar-bottom">
           <form action="/auth/signout" method="post">
-            <Link href="/login" className="sidebar-link" style={{ fontSize: 13 }}>
+            <button type="submit" className="sidebar-link" style={{ fontSize: 13, width: "100%", textAlign: "left", background: "transparent", border: "none", padding: 0, cursor: "pointer" }}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                 <path d="M6 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3M10 11l4-4-4-4M14 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               Sign out
-            </Link>
+            </button>
           </form>
         </div>
       </aside>
