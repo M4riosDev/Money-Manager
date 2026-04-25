@@ -6,7 +6,13 @@ import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_CURRENCY, formatMoney, normalizeCurrency, type SupportedCurrency } from "@/lib/currency";
 
 type Expense = { id: string; name: string; amount: number; category: string };
-type FinanceRow = { budget: number; savings: number; currency: string; expenses: Expense[] };
+type FinanceRow = {
+  budget: number | string | null;
+  monthly_income?: number | string | null;
+  savings: number | string | null;
+  currency: string | null;
+  expenses: Expense[];
+};
 type NormalizedFinanceRow = { budget: number; savings: number; currency: SupportedCurrency; expenses: Expense[] };
 
 const CATEGORIES = ["Food", "Bills", "Transport", "Shopping", "Health", "Other"];
@@ -33,9 +39,10 @@ function useRateLimiter() {
 
 function normalizeRow(v: Partial<FinanceRow> | null | undefined): NormalizedFinanceRow {
   if (!v) return { budget: 0, savings: 0, currency: DEFAULT_CURRENCY, expenses: [] };
+  const normalizedBudget = Number(v.monthly_income) > 0 ? Number(v.monthly_income) : Number(v.budget);
   return {
-    budget:  Number(v.budget)  > 0 ? Number(v.budget)  : 0,
-    savings: Number(v.savings) > 0 ? Math.min(Number(v.savings), Number(v.budget) || 0) : 0,
+    budget:  Number.isFinite(normalizedBudget) && normalizedBudget > 0 ? normalizedBudget : 0,
+    savings: Number(v.savings) > 0 ? Math.min(Number(v.savings), Number.isFinite(normalizedBudget) ? normalizedBudget : 0) : 0,
     currency: normalizeCurrency(v.currency),
     expenses: Array.isArray(v.expenses) ? v.expenses.map(i => ({
       id:       typeof i?.id       === "string" ? i.id       : crypto.randomUUID(),
@@ -113,7 +120,7 @@ export default function ExpensesClient({ userId }: { userId: string }) {
       setLoading(true); setError("");
       const { data, error: e } = await supabase
         .from("vaults")
-        .select("budget, savings, currency, expenses")
+        .select("budget, monthly_income, savings, currency, expenses")
         .eq("user_id", userId)
         .maybeSingle<FinanceRow>();
       if (cancelled) return;
