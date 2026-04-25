@@ -18,6 +18,26 @@ function formatAuthError(rawMessage: string) {
   return rawMessage;
 }
 
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "10px 14px",
+  background: "rgba(255,255,255,0.04)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  borderRadius: 8,
+  color: "#fff",
+  fontFamily: "'DM Sans', sans-serif",
+  fontSize: 14,
+  outline: "none",
+};
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  marginBottom: 5,
+  fontFamily: "'DM Sans', sans-serif",
+  fontSize: 12,
+  color: "#8a909e",
+};
+
 export default function LoginClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -25,6 +45,7 @@ export default function LoginClient() {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
@@ -35,7 +56,6 @@ export default function LoginClient() {
   const callbackMessage = useMemo(() => {
     const errorCode = searchParams.get("error");
     const errorMessage = searchParams.get("message");
-
     if (!errorCode) return "";
     if (errorCode === "missing_code") return "Missing verification code. Please retry from your email link.";
     if (errorCode === "missing_supabase_config") return "Server auth config is missing. Check your environment variables.";
@@ -51,6 +71,14 @@ export default function LoginClient() {
       if (session) router.replace("/dashboard");
     });
   }, [router, supabase]);
+
+  // reset fields when switching mode
+  useEffect(() => {
+    setMessage("");
+    setUsername("");
+    setEmail("");
+    setPassword("");
+  }, [mode]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -69,10 +97,19 @@ export default function LoginClient() {
       return;
     }
 
+    // signup
     const redirectBaseUrl = normalizedSiteUrl ?? window.location.origin;
     const redirectUrl = new URL("/auth/callback", redirectBaseUrl);
     redirectUrl.searchParams.set("next", "/dashboard");
-    const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirectUrl.toString() } });
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: redirectUrl.toString(),
+        data: { username: username.trim() },
+      },
+    });
 
     if (error) {
       setMessage(formatAuthError(error.message));
@@ -83,6 +120,8 @@ export default function LoginClient() {
     setMessage("Account created! Check your email to confirm.");
     setLoading(false);
   }
+
+  const isSuccess = (message || callbackMessage).toLowerCase().includes("created");
 
   return (
     <main
@@ -128,10 +167,10 @@ export default function LoginClient() {
             padding: "28px 28px 24px",
           }}
         >
+          {/* Tab switcher */}
           <div
             style={{
               display: "flex",
-              gap: 0,
               background: "rgba(255,255,255,0.04)",
               border: "1px solid rgba(255,255,255,0.07)",
               borderRadius: 8,
@@ -163,18 +202,27 @@ export default function LoginClient() {
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14 }}>
+
+            {/* Username — signup only */}
+            {mode === "signup" && (
+              <div>
+                <label style={labelStyle}>Username</label>
+                <input
+                  required
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="johndoe"
+                  autoComplete="username"
+                  minLength={3}
+                  style={inputStyle}
+                />
+              </div>
+            )}
+
+            {/* Email */}
             <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: 5,
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 12,
-                  color: "#8a909e",
-                }}
-              >
-                Email address
-              </label>
+              <label style={labelStyle}>Email address</label>
               <input
                 required
                 type="email"
@@ -182,31 +230,13 @@ export default function LoginClient() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 autoComplete="email"
-                style={{
-                  width: "100%",
-                  padding: "10px 14px",
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 8,
-                  color: "#fff",
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 14,
-                  outline: "none",
-                }}
+                style={inputStyle}
               />
             </div>
+
+            {/* Password */}
             <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: 5,
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 12,
-                  color: "#8a909e",
-                }}
-              >
-                Password
-              </label>
+              <label style={labelStyle}>Password</label>
               <input
                 required
                 type="password"
@@ -215,17 +245,7 @@ export default function LoginClient() {
                 placeholder={mode === "signup" ? "Min. 6 characters" : "••••••••"}
                 autoComplete={mode === "login" ? "current-password" : "new-password"}
                 minLength={6}
-                style={{
-                  width: "100%",
-                  padding: "10px 14px",
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 8,
-                  color: "#fff",
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 14,
-                  outline: "none",
-                }}
+                style={inputStyle}
               />
             </div>
 
@@ -256,10 +276,10 @@ export default function LoginClient() {
               style={{
                 marginTop: 16,
                 padding: "10px 14px",
-                background: (message || callbackMessage).includes("created") ? "rgba(22,163,74,0.1)" : "rgba(220,38,38,0.1)",
-                border: `1px solid ${(message || callbackMessage).includes("created") ? "rgba(22,163,74,0.25)" : "rgba(220,38,38,0.25)"}`,
+                background: isSuccess ? "rgba(22,163,74,0.1)" : "rgba(220,38,38,0.1)",
+                border: `1px solid ${isSuccess ? "rgba(22,163,74,0.25)" : "rgba(220,38,38,0.25)"}`,
                 borderRadius: 8,
-                color: (message || callbackMessage).includes("created") ? "#4ade80" : "#f87171",
+                color: isSuccess ? "#4ade80" : "#f87171",
                 fontFamily: "'DM Sans', sans-serif",
                 fontSize: 13,
               }}
