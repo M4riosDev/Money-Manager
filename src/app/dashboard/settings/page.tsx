@@ -1,5 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { DEFAULT_CURRENCY, normalizeCurrency } from "@/lib/currency";
+import CurrencySettingsCard from "@/app/dashboard/settings/currency-settings";
+import MonthlyIncomeSettingsCard from "@/app/dashboard/settings/monthly-income-settings";
 
 function getUsername(user: {
   email?: string;
@@ -59,6 +62,15 @@ export default async function SettingsPage() {
       })
     : "Unknown";
 
+  const { data: vault } = await supabase
+    .from("vaults")
+    .select("currency, monthly_income")
+    .eq("user_id", user.id)
+    .maybeSingle<{ currency: string | null; monthly_income: number | string | null }>();
+
+  const currentCurrency = normalizeCurrency(vault?.currency ?? DEFAULT_CURRENCY);
+  const currentIncome = Number(vault?.monthly_income) > 0 ? Number(vault?.monthly_income) : 0;
+
   return (
     <>
       <div className="topbar">
@@ -115,20 +127,9 @@ export default async function SettingsPage() {
           <div className="card fade-up" style={{ animationDelay: "50ms" }}>
             <div className="section-heading">Preferences</div>
 
-            <div style={rowStyle}>
-              <div style={labelStyle}>Currency</div>
-              <div>
-                <span style={pillStyle}>EUR €</span>
-              </div>
-            </div>
+            <CurrencySettingsCard userId={user.id} initialCurrency={currentCurrency} />
 
-            <div style={{ ...rowStyle, ...disabledStyle, borderBottom: "none", paddingBottom: 2 }}>
-              <div style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 7 }}>
-                Monthly income
-                <span style={soonBadge}>soon</span>
-              </div>
-              <div style={{ fontSize: 12.5, color: "var(--ink-4)" }}>Set your salary or income</div>
-            </div>
+            <MonthlyIncomeSettingsCard userId={user.id} initialIncome={currentIncome} currency={currentCurrency} />
           </div>
 
           {/* Account */}
