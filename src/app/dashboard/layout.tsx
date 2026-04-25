@@ -7,6 +7,7 @@ function NavIcon({ path }: { path: string }) {
   const icons: Record<string, string> = {
     expenses: "M3 6h12M3 10h12M3 14h8",
     analytics: "M2 12l3-4 3 3 4-5 3 3",
+    settings: "M8 2v2M8 12v2M3.8 3.8l1.4 1.4M10.8 10.8l1.4 1.4M2 8h2M12 8h2M3.8 12.2l1.4-1.4M10.8 5.2l1.4-1.4",
     charts: "M2 14V8l4-4 4 4 4-6v12H2z",
   };
   const d = icons[path] || "M3 6h12M3 10h12M3 14h12";
@@ -20,6 +21,7 @@ function NavIcon({ path }: { path: string }) {
 const navItems = [
   { href: "/dashboard/expenses", label: "Expenses", icon: "expenses" },
   { href: "/dashboard/analytics", label: "Analytics", icon: "analytics" },
+  { href: "/dashboard/settings", label: "Settings", icon: "settings" },
 ];
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
