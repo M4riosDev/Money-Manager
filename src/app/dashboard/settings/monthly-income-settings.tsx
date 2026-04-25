@@ -67,9 +67,6 @@ export default function MonthlyIncomeSettingsCard({
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ fontSize: 12.5, color: "var(--ink-4)", lineHeight: 1.5 }}>
-          Used later for budget and income-based views.
-        </div>
         <button
           type="button"
           onClick={handleSave}

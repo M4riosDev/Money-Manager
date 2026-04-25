@@ -59,9 +59,6 @@ export default function CurrencySettingsCard({
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ fontSize: 12.5, color: "var(--ink-4)", lineHeight: 1.5 }}>
-          Used across expenses, charts, and analytics.
-        </div>
         <button
           type="button"
           onClick={handleSave}

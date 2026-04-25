@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_CURRENCY, formatMoney, normalizeCurrency, type SupportedCurrency } from "@/lib/currency";
 
@@ -85,7 +84,6 @@ async function saveVault(budget: number, savings: number, currency: SupportedCur
 }
 
 export default function ExpensesClient({ userId }: { userId: string }) {
-  const router   = useRouter();
   const [supabase] = useState(() => createClient());
   const canSave  = useRateLimiter();
 
@@ -174,8 +172,6 @@ export default function ExpensesClient({ userId }: { userId: string }) {
 
   function removeExpense(id: string) { setExpenses(p => p.filter(i => i.id !== id)); }
 
-  async function logout() { await supabase.auth.signOut(); router.push("/login"); router.refresh(); }
-
   if (loading) return (
     <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
       <div style={{ textAlign: "center" }}>
@@ -203,9 +199,6 @@ export default function ExpensesClient({ userId }: { userId: string }) {
           <span className="topbar-title">Expenses</span>
           {isSaving && <span style={{ fontSize: 11, color: "#b2b9c4", fontFamily: "var(--font-mono)" }}>● saving…</span>}
           {saveError && <span style={{ fontSize: 11, color: "var(--danger)" }}>⚠ {saveError}</span>}
-        </div>
-        <div className="topbar-right">
-          <button onClick={logout} className="btn btn-ghost btn-sm">Sign out</button>
         </div>
       </div>
 

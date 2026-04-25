@@ -9,7 +9,13 @@ import {
 } from "recharts";
 
 type Expense = { id: string; name: string; amount: number; category: string; };
-type FinanceRow = { budget: string; currency: string; expenses: Expense[]; };
+type FinanceRow = {
+  budget: number | string | null;
+  monthly_income?: number | string | null;
+  savings?: number | string | null;
+  currency: string | null;
+  expenses: Expense[];
+};
 
 const COLORS = ["#3b82f6", "#16a34a", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
 
@@ -28,14 +34,19 @@ const CustomTooltip = ({ active, payload, label, currency }: any) => {
 export default function AnalyticsClient({ userId }: { userId: string }) {
   const [supabase] = useState(() => createClient());
   const [budget, setBudget] = useState(0);
+  const [savings, setSavings] = useState(0);
   const [currency, setCurrency] = useState<SupportedCurrency>(DEFAULT_CURRENCY);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from("vaults").select("budget, currency, expenses").eq("user_id", userId).maybeSingle<FinanceRow>().then(({ data }) => {
+    supabase.from("vaults").select("budget, monthly_income, savings, currency, expenses").eq("user_id", userId).maybeSingle<FinanceRow>().then(({ data }) => {
       if (data) {
-        setBudget(Number(data.budget) || 0);
+        const normalizedBudget = Number(data.monthly_income) > 0 ? Number(data.monthly_income) : Number(data.budget);
+        const safeBudget = Number.isFinite(normalizedBudget) && normalizedBudget > 0 ? normalizedBudget : 0;
+        const safeSavings = Number(data.savings) > 0 ? Math.min(Number(data.savings), safeBudget) : 0;
+        setBudget(safeBudget);
+        setSavings(safeSavings);
         setCurrency(normalizeCurrency(data.currency));
         setExpenses(Array.isArray(data.expenses) ? data.expenses : []);
       }
@@ -44,7 +55,8 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
   }, [supabase, userId]);
 
   const total = useMemo(() => expenses.reduce((s, i) => s + i.amount, 0), [expenses]);
-  const remaining = budget - total;
+  const spendableBudget = Math.max(0, budget - savings);
+  const remaining = spendableBudget - total;
 
   const byCategory = useMemo(() => {
     const m: Record<string, number> = {};
@@ -56,9 +68,10 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
   const pieData = useMemo(() => Object.entries(byCategory).map(([name, value]) => ({ name, value: +value.toFixed(2) })), [byCategory]);
   const overviewData = useMemo(() => [
     { name: "Budget", value: budget },
+    { name: "Savings", value: savings },
     { name: "Spent", value: +total.toFixed(2) },
     { name: "Remaining", value: Math.max(0, remaining) },
-  ], [budget, total, remaining]);
+  ], [budget, savings, total, remaining]);
 
   if (loading) return (
     <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -78,14 +91,18 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
 
       <div className="content">
         {/* Stats */}
-        <div className="grid-3 fade-up" style={{ marginBottom: 20 }}>
+        <div className="grid-3 fade-up" style={{ marginBottom: 20, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}>
           <div className="stat-tile">
-            <div className="stat-tile-label">Total budget</div>
+            <div className="stat-tile-label">Budget</div>
             <div className="stat-tile-value">{formatMoney(budget, currency)}</div>
           </div>
           <div className="stat-tile">
+            <div className="stat-tile-label">Savings</div>
+            <div className="stat-tile-value" style={{ color: "var(--accent)" }}>{formatMoney(savings, currency)}</div>
+          </div>
+          <div className="stat-tile">
             <div className="stat-tile-label">Total spent</div>
-            <div className="stat-tile-value" style={{ color: total > budget && budget > 0 ? "var(--danger)" : "var(--ink)" }}>{formatMoney(total, currency)}</div>
+            <div className="stat-tile-value" style={{ color: total > spendableBudget && spendableBudget > 0 ? "var(--danger)" : "var(--ink)" }}>{formatMoney(total, currency)}</div>
           </div>
           <div className="stat-tile">
             <div className="stat-tile-label">Remaining</div>
@@ -117,7 +134,7 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
                   <Tooltip content={<CustomTooltip currency={currency} />} />
                   <Bar dataKey="value" radius={[6,6,0,0]}>
                     {overviewData.map((entry, i) => (
-                      <Cell key={i} fill={i === 0 ? "#e3e5ea" : i === 1 ? "#0d0f12" : "#16a34a"} />
+                      <Cell key={i} fill={i === 0 ? "#e3e5ea" : i === 1 ? "#16a34a" : i === 2 ? "#0d0f12" : "#2563eb"} />
                     ))}
                   </Bar>
                 </BarChart>

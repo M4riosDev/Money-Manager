@@ -1,6 +1,37 @@
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
 
-export default function HomePage() {
+function getUsername(user: {
+  email?: string;
+  user_metadata?: { username?: string; name?: string; full_name?: string };
+}) {
+  const fromMetadata =
+    user.user_metadata?.username ??
+    user.user_metadata?.name ??
+    user.user_metadata?.full_name;
+
+  if (fromMetadata && fromMetadata.trim().length > 0) return fromMetadata;
+  if (user.email && user.email.includes('@')) return user.email.split('@')[0];
+  return 'there';
+}
+
+export default async function HomePage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const username = user
+    ? getUsername({
+        email: user.email,
+        user_metadata: {
+          username: user.user_metadata?.username,
+          name: user.user_metadata?.name,
+          full_name: user.user_metadata?.full_name,
+        },
+      })
+    : null;
+
   return (
     <main
       style={{
@@ -32,22 +63,40 @@ export default function HomePage() {
           />
           <span style={{ color: '#fff', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 15 }}>Money Manager</span>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <Link href="/login" style={{
-            fontFamily: "'DM Sans', sans-serif",
-            color: '#8a909e', textDecoration: 'none', fontSize: 13.5,
-            padding: '8px 16px',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 8,
-            transition: 'all 0.13s',
-          }}>Sign in</Link>
-          <Link href="/login" style={{
-            fontFamily: "'DM Sans', sans-serif",
-            background: '#16a34a', color: '#fff', textDecoration: 'none',
-            fontSize: 13.5, fontWeight: 500,
-            padding: '8px 16px', borderRadius: 8,
-          }}>Get started</Link>
-        </div>
+        {user ? (
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span style={{
+              fontFamily: "'DM Sans', sans-serif",
+              color: '#8a909e',
+              fontSize: 13.5,
+            }}>
+              Signed in as {username}
+            </span>
+            <Link href="/dashboard" style={{
+              fontFamily: "'DM Sans', sans-serif",
+              background: '#16a34a', color: '#fff', textDecoration: 'none',
+              fontSize: 13.5, fontWeight: 500,
+              padding: '8px 16px', borderRadius: 8,
+            }}>Open dashboard</Link>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 10 }}>
+            <Link href="/login" style={{
+              fontFamily: "'DM Sans', sans-serif",
+              color: '#8a909e', textDecoration: 'none', fontSize: 13.5,
+              padding: '8px 16px',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 8,
+              transition: 'all 0.13s',
+            }}>Sign in</Link>
+            <Link href="/login" style={{
+              fontFamily: "'DM Sans', sans-serif",
+              background: '#16a34a', color: '#fff', textDecoration: 'none',
+              fontSize: 13.5, fontWeight: 500,
+              padding: '8px 16px', borderRadius: 8,
+            }}>Get started</Link>
+          </div>
+        )}
       </nav>
 
       {/* Hero */}
@@ -92,7 +141,7 @@ export default function HomePage() {
           maxWidth: 700,
           marginBottom: 20,
         }}>
-          Control every euro.<br />
+          Control every currency.<br />
           <span style={{ color: '#4ade80' }}>Clearly.</span>
         </h1>
 
