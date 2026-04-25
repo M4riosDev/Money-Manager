@@ -123,7 +123,6 @@ export default function ExpensesClient({ userId }: { userId: string }) {
         setBudget(n.budget); setSavings(n.savings); setCurrency(n.currency); setExpenses(n.expenses);
         clearLegacy(userId); setLoading(false); return;
       }
-      // First login — migrate from localStorage if present
       const legacy = readLegacy(userId) ?? { budget: 0, savings: 0, currency: DEFAULT_CURRENCY, expenses: [] };
       setBudget(legacy.budget); setSavings(legacy.savings); setCurrency(legacy.currency); setExpenses(legacy.expenses);
       try {
@@ -323,13 +322,8 @@ export default function ExpensesClient({ userId }: { userId: string }) {
             <div className="card fade-up">
               <div className="section-heading">Monthly budget</div>
               <label className="field-label">Amount ({currency})</label>
-              <input type="number" value={budget} onChange={e => setBudget(Math.max(0, Number(e.target.value)))} min="0" max="10000000" step="0.01" placeholder="2000.00" />
-            </div>
-
-            <div className="card fade-up">
-              <div className="section-heading">Currency</div>
-              <div style={{ fontSize: 12.5, color: "var(--ink-4)", lineHeight: 1.5 }}>
-                Managed from Settings. This page only reads the current currency.
+              <div style={{ fontSize: 13.5, color: "var(--ink)", padding: "8px 0" }}>
+                {formatMoney(budget, currency)}
               </div>
             </div>
 

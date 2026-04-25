@@ -10,7 +10,10 @@ create table if not exists public.vaults (
 );
 
 alter table public.vaults
-  add column if not exists currency text;
+  add column if not exists monthly_income numeric(12,2) not null default 0;
+
+alter table public.vaults
+  add column if not exists currency text not null default 'EUR';
 
 alter table public.vaults
   alter column budget type numeric(12,2)
@@ -33,6 +36,9 @@ alter table public.vaults
 alter table public.vaults
   alter column monthly_income set default 0;
 
+alter table public.vaults
+  alter column currency set default 'EUR';
+
 update public.vaults
 set monthly_income = coalesce(monthly_income, 0)
 where monthly_income is null;
@@ -43,12 +49,7 @@ where currency is null
   or trim(currency) = ''
   or upper(trim(currency)) not in ('EUR','USD','GBP','CHF','AUD','CAD','JPY','BGN','RON');
 
-alter table public.vaults
-  alter column currency set default 'EUR';
-
-alter table public.vaults
-  alter column currency set not null;
-
+-- Constraints
 alter table public.vaults
   drop constraint if exists vaults_budget_non_negative;
 
@@ -78,7 +79,11 @@ alter table public.vaults
   drop constraint if exists vaults_expenses_is_array;
 
 alter table public.vaults
-  add constraint vaults_expenses_is_array check (jsonb_typeof(expenses) = 'array');
+  add constraint vaults_expenses_is_array
+  check (jsonb_typeof(expenses) = 'array');
+
+alter table public.vaults
+  alter column currency set not null;
 
 alter table public.vaults enable row level security;
 
@@ -89,8 +94,7 @@ revoke all on public.vaults from anon;
 do $$
 begin
   if not exists (
-    select 1
-    from pg_policies
+    select 1 from pg_policies
     where schemaname = 'public'
       and tablename = 'vaults'
       and policyname = 'Users can read own vault'
@@ -100,14 +104,12 @@ begin
       for select
       using (auth.uid() = user_id);
   end if;
-end
-$$;
+end $$;
 
 do $$
 begin
   if not exists (
-    select 1
-    from pg_policies
+    select 1 from pg_policies
     where schemaname = 'public'
       and tablename = 'vaults'
       and policyname = 'Users can insert own vault'
@@ -117,14 +119,12 @@ begin
       for insert
       with check (auth.uid() = user_id);
   end if;
-end
-$$;
+end $$;
 
 do $$
 begin
   if not exists (
-    select 1
-    from pg_policies
+    select 1 from pg_policies
     where schemaname = 'public'
       and tablename = 'vaults'
       and policyname = 'Users can update own vault'
@@ -135,14 +135,12 @@ begin
       using (auth.uid() = user_id)
       with check (auth.uid() = user_id);
   end if;
-end
-$$;
+end $$;
 
 do $$
 begin
   if not exists (
-    select 1
-    from pg_policies
+    select 1 from pg_policies
     where schemaname = 'public'
       and tablename = 'vaults'
       and policyname = 'Users can delete own vault'
@@ -152,8 +150,8 @@ begin
       for delete
       using (auth.uid() = user_id);
   end if;
-end
-$$;
+end $$;
+
 
 create or replace function public.set_vault_updated_at()
 returns trigger

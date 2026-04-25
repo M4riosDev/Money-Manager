@@ -177,9 +177,6 @@ export default async function SettingsPage() {
                   Delete account
                   <span style={{ ...soonBadge, borderColor: "var(--danger-border)", color: "var(--danger-text)" }}>soon</span>
                 </div>
-                <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 2, opacity: 0.75 }}>
-                  Permanently remove all your data.
-                </div>
               </div>
               <button
                 disabled
