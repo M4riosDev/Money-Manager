@@ -41,6 +41,8 @@ Create a `.env.local` file in the project root:
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
+SUPABASE_SERVICE_ROLE_KEY=your_superbase_service_role_key
+( most for backup if the NEXT_PUBLIC_SITE_URL fails VERCEL_URL=http://localhost:3000)
 ```
 
 Open http://localhost:3000
