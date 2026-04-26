@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_CURRENCY, normalizeCurrency } from "@/lib/currency";
 import CurrencySettingsCard from "@/app/dashboard/settings/currency-settings";
 import MonthlyIncomeSettingsCard from "@/app/dashboard/settings/monthly-income-settings";
+import EmailSettingsCard from "@/app/dashboard/settings/email-settings";
 
 function getUsername(user: {
   email?: string;
@@ -114,12 +115,9 @@ export default async function SettingsPage() {
               <div style={valueStyle}>{user.email ?? "Not set"}</div>
             </div>
 
-            <div style={{ ...rowStyle, ...disabledStyle, borderBottom: "none", paddingBottom: 2 }}>
-              <div style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 7 }}>
-                Change email
-                <span style={soonBadge}>soon</span>
-              </div>
-              <div style={{ fontSize: 12.5, color: "var(--ink-4)" }}>Update your email address</div>
+            <div style={{ paddingTop: 4 }}>
+              <div style={{ ...labelStyle, marginBottom: 4 }}>Change email</div>
+              <EmailSettingsCard currentEmail={user.email ?? ""} />
             </div>
           </div>
 

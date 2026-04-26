@@ -18,13 +18,13 @@ const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
 
 const cspParts = [
   "default-src 'self'",
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "script-src 'self' 'unsafe-inline'",
   supabaseHost
     ? `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}`
     : "connect-src 'self'",
   "img-src 'self' data: blob:",
-  "font-src 'self'",
+  "font-src 'self' https://fonts.gstatic.com",
   "frame-src 'none'",
   "object-src 'none'",
   "base-uri 'self'",
