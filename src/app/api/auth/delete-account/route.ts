@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 export async function POST(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
     return NextResponse.json(
       { error: "Missing Supabase configuration" },
       { status: 500 }
@@ -52,7 +54,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { error: deleteError } = await supabase.auth.admin.deleteUser(user.id);
+  const adminClient = createAdminClient(supabaseUrl, supabaseServiceKey);
+  const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
 
   if (deleteError) {
     console.error("Error deleting user:", deleteError);
