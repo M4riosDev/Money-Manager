@@ -6,10 +6,10 @@ export async function POST(request: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL("/login", request.url), { status: 303 });
   }
 
-  let response = NextResponse.redirect(new URL("/login", request.url));
+  let response = NextResponse.redirect(new URL("/login", request.url), { status: 303 });
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet) {
-        response = NextResponse.redirect(new URL("/login", request.url));
+        response = NextResponse.redirect(new URL("/login", request.url), { status: 303 });
 
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);

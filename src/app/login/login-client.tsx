@@ -181,6 +181,7 @@ export default function LoginClient() {
             {(["login", "signup"] as const).map((m) => (
               <button
                 key={m}
+                type="button"
                 onClick={() => setMode(m)}
                 style={{
                   flex: 1,
