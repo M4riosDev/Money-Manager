@@ -4,6 +4,7 @@ import { DEFAULT_CURRENCY, normalizeCurrency } from "@/lib/currency";
 import CurrencySettingsCard from "@/app/dashboard/settings/currency-settings";
 import MonthlyIncomeSettingsCard from "@/app/dashboard/settings/monthly-income-settings";
 import EmailSettingsCard from "@/app/dashboard/settings/email-settings";
+import DeleteAccountCard from "@/app/dashboard/settings/delete-account-settings";
 
 function getUsername(user: {
   email?: string;
@@ -168,26 +169,7 @@ export default async function SettingsPage() {
             }}
           >
             <div className="section-heading" style={{ color: "var(--danger-text)" }}>Danger zone</div>
-
-            <div style={{ ...disabledStyle, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--danger-text)", display: "flex", alignItems: "center", gap: 7 }}>
-                  Delete account
-                  <span style={{ ...soonBadge, borderColor: "var(--danger-border)", color: "var(--danger-text)" }}>soon</span>
-                </div>
-              </div>
-              <button
-                disabled
-                style={{
-                  background: "var(--danger)", color: "#fff", border: "none",
-                  padding: "6px 14px", borderRadius: "var(--r-md)",
-                  fontSize: 13, fontWeight: 500, opacity: 0.4, cursor: "not-allowed",
-                  fontFamily: "var(--font)",
-                }}
-              >
-                Delete
-              </button>
-            </div>
+            <DeleteAccountCard />
           </div>
 
         </div>
@@ -216,11 +198,6 @@ const valueStyle: React.CSSProperties = {
   color: "var(--ink)",
 };
 
-const disabledStyle: React.CSSProperties = {
-  opacity: 0.45,
-  pointerEvents: "none",
-};
-
 const pillStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
@@ -231,17 +208,4 @@ const pillStyle: React.CSSProperties = {
   background: "var(--surface-3)",
   color: "var(--ink-2)",
   textTransform: "capitalize",
-};
-
-const soonBadge: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "1px 6px",
-  borderRadius: 99,
-  fontSize: 10,
-  fontWeight: 500,
-  background: "transparent",
-  color: "var(--ink-4)",
-  border: "1px solid var(--border)",
-  letterSpacing: "0.03em",
 };

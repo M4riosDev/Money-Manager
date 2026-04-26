@@ -16,7 +16,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login?error=missing_supabase_config", request.url));
   }
 
-  // Neither code nor token_hash present
   if (!code && !tokenHash) {
     return NextResponse.redirect(new URL("/login?error=missing_code", request.url));
   }
@@ -40,10 +39,8 @@ export async function GET(request: NextRequest) {
   let error;
 
   if (tokenHash && type) {
-    // email_change, signup, recovery, etc. confirmations
     ({ error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as never }));
   } else if (code) {
-    // OAuth / magic link PKCE flow
     ({ error } = await supabase.auth.exchangeCodeForSession(code));
   }
 
@@ -54,7 +51,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // For email_change, redirect to settings so user sees the updated email
   if (type === "email_change") {
     response = NextResponse.redirect(new URL("/dashboard/settings", request.url));
   }
