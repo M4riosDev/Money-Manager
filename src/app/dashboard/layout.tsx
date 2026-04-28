@@ -40,20 +40,20 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         <nav className="sidebar-nav">
           <div className="sidebar-section-label">Menu</div>
           {navItems.map(item => (
-            <Link key={item.href} href={item.href} className="sidebar-link">
+            <Link key={item.href} href={item.href} className="sidebar-link" aria-label={item.label}>
               <NavIcon path={item.icon} />
-              {item.label}
+              <span className="sidebar-link-text">{item.label}</span>
             </Link>
           ))}
         </nav>
 
         <div className="sidebar-bottom">
           <form action="/auth/signout" method="post">
-            <button type="submit" className="sidebar-link" style={{ fontSize: 13, width: "100%", textAlign: "left", background: "transparent", border: "none", padding: 0, cursor: "pointer" }}>
+            <button type="submit" className="sidebar-link" aria-label="Sign out" style={{ fontSize: 13, width: "100%", textAlign: "left", background: "transparent", border: "none", padding: 0, cursor: "pointer" }}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                 <path d="M6 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3M10 11l4-4-4-4M14 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              Sign out
+              <span className="sidebar-link-text">Sign out</span>
             </button>
           </form>
         </div>

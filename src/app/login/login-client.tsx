@@ -20,13 +20,13 @@ function formatAuthError(rawMessage: string) {
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  padding: "10px 14px",
+  padding: "clamp(9px, 2.8vw, 10px) clamp(10px, 3.2vw, 14px)",
   background: "rgba(255,255,255,0.04)",
   border: "1px solid rgba(255,255,255,0.1)",
   borderRadius: 8,
   color: "#fff",
   fontFamily: "'DM Sans', sans-serif",
-  fontSize: 14,
+  fontSize: "clamp(12px, 3.8vw, 14px)",
   outline: "none",
 };
 
@@ -34,7 +34,7 @@ const labelStyle: React.CSSProperties = {
   display: "block",
   marginBottom: 5,
   fontFamily: "'DM Sans', sans-serif",
-  fontSize: 12,
+  fontSize: "clamp(11px, 3.2vw, 12px)",
   color: "#8a909e",
 };
 
@@ -131,19 +131,19 @@ export default function LoginClient() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "2rem",
+        padding: "clamp(0.6rem, 3.5vw, 2rem)",
       }}
     >
       <div style={{ width: "100%", maxWidth: 380 }}>
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
+        <div style={{ textAlign: "center", marginBottom: "clamp(14px, 5vw, 32px)" }}>
           <div
             aria-label="Money Manager logo"
             role="img"
             style={{
-              width: 72,
-              height: 72,
+              width: "clamp(48px, 16vw, 72px)",
+              height: "clamp(48px, 16vw, 72px)",
               borderRadius: 12,
-              marginBottom: 12,
+              marginBottom: "clamp(8px, 3vw, 12px)",
               display: "inline-block",
               backgroundImage: "url('/favicon.ico')",
               backgroundRepeat: "no-repeat",
@@ -151,10 +151,10 @@ export default function LoginClient() {
               backgroundSize: "220%",
             }}
           />
-          <div style={{ color: "#fff", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 18 }}>
+          <div style={{ color: "#fff", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: "clamp(15px, 5vw, 18px)" }}>
             Money Manager
           </div>
-          <div style={{ color: "#4a5162", fontFamily: "'DM Sans', sans-serif", fontSize: 13, marginTop: 4 }}>
+          <div style={{ color: "#4a5162", fontFamily: "'DM Sans', sans-serif", fontSize: "clamp(11px, 3.6vw, 13px)", marginTop: 4 }}>
             {mode === "login" ? "Welcome back" : "Create your account"}
           </div>
         </div>
@@ -164,7 +164,7 @@ export default function LoginClient() {
             background: "#14171d",
             border: "1px solid rgba(255,255,255,0.08)",
             borderRadius: 16,
-            padding: "28px 28px 24px",
+            padding: "clamp(12px, 4vw, 28px) clamp(10px, 4vw, 28px) clamp(12px, 3vw, 24px)",
           }}
         >
           {/* Tab switcher */}
@@ -276,13 +276,14 @@ export default function LoginClient() {
             <div
               style={{
                 marginTop: 16,
-                padding: "10px 14px",
+                padding: "10px 12px",
                 background: isSuccess ? "rgba(22,163,74,0.1)" : "rgba(220,38,38,0.1)",
                 border: `1px solid ${isSuccess ? "rgba(22,163,74,0.25)" : "rgba(220,38,38,0.25)"}`,
                 borderRadius: 8,
                 color: isSuccess ? "#4ade80" : "#f87171",
                 fontFamily: "'DM Sans', sans-serif",
-                fontSize: 13,
+                fontSize: "clamp(11px, 3.5vw, 13px)",
+                wordBreak: "break-word",
               }}
             >
               {message || callbackMessage}

@@ -91,7 +91,7 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
 
       <div className="content">
         {/* Stats */}
-        <div className="grid-3 fade-up" style={{ marginBottom: 20, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}>
+        <div className="analytics-stats fade-up">
           <div className="stat-tile">
             <div className="stat-tile-label">Budget</div>
             <div className="stat-tile-value">{formatMoney(budget, currency)}</div>
@@ -141,7 +141,7 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
               </ResponsiveContainer>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div className="analytics-charts-grid">
               {/* Spending by category */}
               <div className="card fade-up">
                 <div className="section-heading">Spending by category</div>

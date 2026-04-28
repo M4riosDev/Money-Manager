@@ -246,30 +246,30 @@ export default function ExpensesClient({ userId }: { userId: string }) {
           </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20, alignItems: "start" }}>
+        <div className="expenses-layout">
           {/* Left: expense list */}
           <div>
             <div className="card fade-up" style={{ marginBottom: 20 }}>
               <div className="section-heading">Add expense</div>
               <form onSubmit={addExpense}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 10 }}>
+                <div className="expense-add-row">
                   <div>
                     <label className="field-label">Name</label>
                     <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Coffee" maxLength={100} />
                   </div>
-                  <div style={{ width: 120 }}>
+                  <div>
                     <label className="field-label">Amount ({currency})</label>
                     <input type="number" value={amount} onChange={e => setAmount(e.target.value)} min="0.01" max="1000000" step="0.01" placeholder="0.00" />
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                <div className="expense-add-actions">
                   <div style={{ flex: 1 }}>
                     <label className="field-label">Category</label>
                     <select value={category} onChange={e => setCategory(e.target.value)}>
                       {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
-                  <button type="submit" className="btn btn-primary" style={{ flexShrink: 0 }}>Add expense</button>
+                  <button type="submit" className="btn btn-primary" style={{ flexShrink: 0, width: "100%" }}>Add expense</button>
                 </div>
               </form>
             </div>

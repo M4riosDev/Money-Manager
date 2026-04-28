@@ -82,16 +82,13 @@ export default async function SettingsPage() {
       </div>
 
       <div className="content">
-        <div style={{ maxWidth: 600, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="settings-container">
 
           {/* Profile */}
           <div className="card fade-up" style={{ animationDelay: "0ms" }}>
             <div className="section-heading">Profile</div>
 
-            <div style={{
-              display: "flex", alignItems: "center", gap: 16,
-              paddingBottom: 18, borderBottom: "1px solid var(--border)", marginBottom: 16,
-            }}>
+            <div className="settings-profile-head">
               <div style={{
                 width: 48, height: 48, borderRadius: "50%",
                 background: "var(--ink)", color: "#fff",
@@ -106,12 +103,12 @@ export default async function SettingsPage() {
               </div>
             </div>
 
-            <div style={rowStyle}>
+            <div className="settings-row">
               <div style={labelStyle}>Username</div>
               <div style={valueStyle}>{username}</div>
             </div>
 
-            <div style={rowStyle}>
+            <div className="settings-row">
               <div style={labelStyle}>Email</div>
               <div style={valueStyle}>{user.email ?? "Not set"}</div>
             </div>
@@ -135,7 +132,7 @@ export default async function SettingsPage() {
           <div className="card fade-up" style={{ animationDelay: "100ms" }}>
             <div className="section-heading">Account</div>
 
-            <div style={rowStyle}>
+            <div className="settings-row">
               <div style={labelStyle}>Account ID</div>
               <div style={{
                 fontSize: 11.5, color: "var(--ink-4)",
@@ -146,14 +143,14 @@ export default async function SettingsPage() {
               </div>
             </div>
 
-            <div style={rowStyle}>
+            <div className="settings-row">
               <div style={labelStyle}>Sign-in method</div>
               <div>
                 <span style={pillStyle}>{user.app_metadata?.provider ?? "Email"}</span>
               </div>
             </div>
 
-            <div style={{ ...rowStyle, borderBottom: "none", paddingBottom: 2 }}>
+            <div className="settings-row" style={{ borderBottom: "none", paddingBottom: 2 }}>
               <div style={labelStyle}>Last sign in</div>
               <div style={{ ...valueStyle, color: "var(--ink-3)", fontSize: 12.5 }}>{lastSignIn}</div>
             </div>
@@ -177,15 +174,6 @@ export default async function SettingsPage() {
     </>
   );
 }
-
-const rowStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "140px 1fr",
-  gap: 12,
-  alignItems: "center",
-  padding: "9px 0",
-  borderBottom: "1px solid var(--border)",
-};
 
 const labelStyle: React.CSSProperties = {
   fontSize: 12,

@@ -81,7 +81,7 @@ export default function SpendingCategoryPage() {
   const total = Object.values(byCategory).reduce((sum, val) => sum + val, 0);
 
   return (
-    <main style={{ maxWidth: 900, margin: "0 auto", padding: "2rem 1rem" }}>
+    <main className="chart-page-main">
       <Link
         href="/dashboard"
         style={{
@@ -95,34 +95,20 @@ export default function SpendingCategoryPage() {
         ← Back to Dashboard
       </Link>
 
-      <section
-        style={{
-          background: "#fff",
-          border: "1px solid #e5e7eb",
-          borderRadius: 12,
-          padding: "1.5rem",
-        }}
-      >
-        <h1 style={{ fontSize: 24, marginTop: 0, marginBottom: 20 }}>Spending by Category</h1>
+      <section className="chart-page-section">
+        <h1 className="chart-page-title">Spending by Category</h1>
         
         {data.length === 0 ? (
           <p style={{ color: "#6b7280" }}>No expenses yet.</p>
         ) : (
           <>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-                gap: 16,
-                marginBottom: 24,
-              }}
-            >
+            <div className="chart-kpi-grid">
               {Object.entries(byCategory).map(([category, amount]) => (
                 <div
                   key={category}
                   style={{
                     background: "#f3f4f6",
-                    padding: "1rem",
+                    padding: "0.8rem",
                     borderRadius: 8,
                     textAlign: "center",
                   }}
@@ -140,7 +126,7 @@ export default function SpendingCategoryPage() {
               ))}
             </div>
 
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={240}>
               <BarChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="category" />

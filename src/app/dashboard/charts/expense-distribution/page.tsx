@@ -81,7 +81,7 @@ export default function ExpenseDistributionPage() {
   }
 
   return (
-    <main style={{ maxWidth: 900, margin: "0 auto", padding: "2rem 1rem" }}>
+    <main className="chart-page-main">
       <Link
         href="/dashboard"
         style={{
@@ -95,34 +95,20 @@ export default function ExpenseDistributionPage() {
         ← Back to Dashboard
       </Link>
 
-      <section
-        style={{
-          background: "#fff",
-          border: "1px solid #e5e7eb",
-          borderRadius: 12,
-          padding: "1.5rem",
-        }}
-      >
-        <h1 style={{ fontSize: 24, marginTop: 0, marginBottom: 20 }}>Expense Distribution</h1>
+      <section className="chart-page-section">
+        <h1 className="chart-page-title">Expense Distribution</h1>
 
         {data.length === 0 ? (
           <p style={{ color: "#6b7280" }}>No expenses yet.</p>
         ) : (
           <>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-                gap: 16,
-                marginBottom: 24,
-              }}
-            >
+            <div className="chart-kpi-grid">
               {data.map((item, idx) => (
                 <div
                   key={item.name}
                   style={{
                     background: "#f3f4f6",
-                    padding: "1rem",
+                    padding: "0.8rem",
                     borderRadius: 8,
                     textAlign: "center",
                     borderLeft: `4px solid ${COLORS[idx % COLORS.length]}`,
@@ -136,7 +122,7 @@ export default function ExpenseDistributionPage() {
               ))}
             </div>
 
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={240}>
               <PieChart>
                 <Pie
                   data={data}
@@ -144,7 +130,7 @@ export default function ExpenseDistributionPage() {
                   cy="50%"
                   labelLine={false}
                   label={({ name, value }) => `${name}: ${formatMoney(Number(value), currency)}`}
-                  outerRadius={100}
+                  outerRadius={72}
                   fill="#8884d8"
                   dataKey="value"
                 >

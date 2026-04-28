@@ -82,7 +82,7 @@ export default function BudgetOverviewPage() {
   }
 
   return (
-    <main style={{ maxWidth: 900, margin: "0 auto", padding: "2rem 1rem" }}>
+    <main className="chart-page-main">
       <Link
         href="/dashboard"
         style={{
@@ -96,52 +96,23 @@ export default function BudgetOverviewPage() {
         ← Back to Dashboard
       </Link>
 
-      <section
-        style={{
-          background: "#fff",
-          border: "1px solid #e5e7eb",
-          borderRadius: 12,
-          padding: "1.5rem",
-        }}
-      >
-        <h1 style={{ fontSize: 24, marginTop: 0, marginBottom: 20 }}>Budget Overview</h1>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-            gap: 16,
-            marginBottom: 24,
-          }}
-        >
+      <section className="chart-page-section">
+        <h1 className="chart-page-title">Budget Overview</h1>
+        <div className="chart-kpi-grid">
           <div
-            style={{
-              background: "#f3f4f6",
-              padding: "1rem",
-              borderRadius: 8,
-              textAlign: "center",
-            }}
+            className="chart-kpi-card"
           >
             <div style={{ color: "#6b7280", fontSize: 14, marginBottom: 4 }}>Total Budget</div>
             <div style={{ fontSize: 20, fontWeight: 700 }}>{formatMoney(budget, currency)}</div>
           </div>
           <div
-            style={{
-              background: "#f3f4f6",
-              padding: "1rem",
-              borderRadius: 8,
-              textAlign: "center",
-            }}
+            className="chart-kpi-card"
           >
             <div style={{ color: "#6b7280", fontSize: 14, marginBottom: 4 }}>Total Spent</div>
             <div style={{ fontSize: 20, fontWeight: 700 }}>{formatMoney(total, currency)}</div>
           </div>
           <div
-            style={{
-              background: "#f3f4f6",
-              padding: "1rem",
-              borderRadius: 8,
-              textAlign: "center",
-            }}
+            className="chart-kpi-card"
           >
             <div style={{ color: "#6b7280", fontSize: 14, marginBottom: 4 }}>Remaining</div>
             <div
@@ -156,7 +127,7 @@ export default function BudgetOverviewPage() {
           </div>
         </div>
 
-        <ResponsiveContainer width="100%" height={400}>
+        <ResponsiveContainer width="100%" height={240}>
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="name" />
