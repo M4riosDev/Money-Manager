@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_CURRENCY, normalizeCurrency } from "@/lib/currency";
+import { normalizeIncomeMode, type IncomeMode } from "@/lib/income";
 import CurrencySettingsCard from "@/app/dashboard/settings/currency-settings";
 import MonthlyIncomeSettingsCard from "@/app/dashboard/settings/monthly-income-settings";
 import EmailSettingsCard from "@/app/dashboard/settings/email-settings";
@@ -66,12 +67,19 @@ export default async function SettingsPage() {
 
   const { data: vault } = await supabase
     .from("vaults")
-    .select("currency, monthly_income")
+    .select("currency, monthly_income, extra_income, income_mode")
     .eq("user_id", user.id)
-    .maybeSingle<{ currency: string | null; monthly_income: number | string | null }>();
+    .maybeSingle<{
+      currency: string | null;
+      monthly_income: number | string | null;
+      extra_income: number | string | null;
+      income_mode: IncomeMode | null;
+    }>();
 
   const currentCurrency = normalizeCurrency(vault?.currency ?? DEFAULT_CURRENCY);
   const currentIncome = Number(vault?.monthly_income) > 0 ? Number(vault?.monthly_income) : 0;
+  const currentExtraIncome = Number(vault?.extra_income) > 0 ? Number(vault?.extra_income) : 0;
+  const currentIncomeMode = normalizeIncomeMode(vault?.income_mode);
 
   return (
     <>
@@ -125,7 +133,13 @@ export default async function SettingsPage() {
 
             <CurrencySettingsCard userId={user.id} initialCurrency={currentCurrency} />
 
-            <MonthlyIncomeSettingsCard userId={user.id} initialIncome={currentIncome} currency={currentCurrency} />
+            <MonthlyIncomeSettingsCard
+              userId={user.id}
+              initialIncome={currentIncome}
+              initialExtraIncome={currentExtraIncome}
+              initialIncomeMode={currentIncomeMode}
+              currency={currentCurrency}
+            />
           </div>
 
           {/* Account */}

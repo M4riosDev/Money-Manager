@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_CURRENCY, formatMoney, normalizeCurrency, type SupportedCurrency } from "@/lib/currency";
+import { normalizeIncomeMode, resolveEffectiveIncome, type IncomeMode } from "@/lib/income";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -12,6 +13,8 @@ type Expense = { id: string; name: string; amount: number; category: string; };
 type FinanceRow = {
   budget: number | string | null;
   monthly_income?: number | string | null;
+  extra_income?: number | string | null;
+  income_mode?: IncomeMode | null;
   savings?: number | string | null;
   currency: string | null;
   expenses: Expense[];
@@ -36,17 +39,19 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
   const [budget, setBudget] = useState(0);
   const [savings, setSavings] = useState(0);
   const [currency, setCurrency] = useState<SupportedCurrency>(DEFAULT_CURRENCY);
+  const [incomeMode, setIncomeMode] = useState<IncomeMode>("fixed");
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from("vaults").select("budget, monthly_income, savings, currency, expenses").eq("user_id", userId).maybeSingle<FinanceRow>().then(({ data }) => {
+    supabase.from("vaults").select("budget, monthly_income, extra_income, income_mode, savings, currency, expenses").eq("user_id", userId).maybeSingle<FinanceRow>().then(({ data }) => {
       if (data) {
-        const normalizedBudget = Number(data.monthly_income) > 0 ? Number(data.monthly_income) : Number(data.budget);
+        const normalizedBudget = resolveEffectiveIncome(data);
         const safeBudget = Number.isFinite(normalizedBudget) && normalizedBudget > 0 ? normalizedBudget : 0;
         const safeSavings = Number(data.savings) > 0 ? Math.min(Number(data.savings), safeBudget) : 0;
         setBudget(safeBudget);
         setSavings(safeSavings);
+        setIncomeMode(normalizeIncomeMode(data.income_mode));
         setCurrency(normalizeCurrency(data.currency));
         setExpenses(Array.isArray(data.expenses) ? data.expenses : []);
       }
@@ -93,7 +98,7 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
         {/* Stats */}
         <div className="analytics-stats fade-up">
           <div className="stat-tile">
-            <div className="stat-tile-label">Budget</div>
+            <div className="stat-tile-label">{incomeMode === "self_employed" ? "Available income" : "Budget"}</div>
             <div className="stat-tile-value">{formatMoney(budget, currency)}</div>
           </div>
           <div className="stat-tile">

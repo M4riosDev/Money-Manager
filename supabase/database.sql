@@ -13,6 +13,12 @@ alter table public.vaults
   add column if not exists monthly_income numeric(12,2) not null default 0;
 
 alter table public.vaults
+  add column if not exists income_mode text not null default 'fixed';
+
+alter table public.vaults
+  add column if not exists extra_income numeric(12,2) not null default 0;
+
+alter table public.vaults
   add column if not exists currency text not null default 'EUR';
 
 alter table public.vaults
@@ -37,11 +43,31 @@ alter table public.vaults
   alter column monthly_income set default 0;
 
 alter table public.vaults
+  alter column extra_income type numeric(12,2)
+  using extra_income::numeric(12,2);
+
+alter table public.vaults
+  alter column extra_income set default 0;
+
+alter table public.vaults
+  alter column income_mode set default 'fixed';
+
+alter table public.vaults
   alter column currency set default 'EUR';
 
 update public.vaults
 set monthly_income = coalesce(monthly_income, 0)
 where monthly_income is null;
+
+update public.vaults
+set extra_income = coalesce(extra_income, 0)
+where extra_income is null;
+
+update public.vaults
+set income_mode = 'fixed'
+where income_mode is null
+  or trim(income_mode) = ''
+  or income_mode not in ('fixed', 'self_employed');
 
 update public.vaults
 set currency = upper(trim(coalesce(currency, 'EUR')))
@@ -69,6 +95,19 @@ alter table public.vaults
   add constraint vaults_monthly_income_non_negative check (monthly_income >= 0);
 
 alter table public.vaults
+  drop constraint if exists vaults_extra_income_non_negative;
+
+alter table public.vaults
+  add constraint vaults_extra_income_non_negative check (extra_income >= 0);
+
+alter table public.vaults
+  drop constraint if exists vaults_income_mode_allowed;
+
+alter table public.vaults
+  add constraint vaults_income_mode_allowed
+  check (income_mode in ('fixed', 'self_employed'));
+
+alter table public.vaults
   drop constraint if exists vaults_currency_allowed;
 
 alter table public.vaults
@@ -84,6 +123,9 @@ alter table public.vaults
 
 alter table public.vaults
   alter column currency set not null;
+
+alter table public.vaults
+  alter column income_mode set not null;
 
 alter table public.vaults enable row level security;
 

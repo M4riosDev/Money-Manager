@@ -3,16 +3,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_CURRENCY, formatMoney, normalizeCurrency, type SupportedCurrency } from "@/lib/currency";
+import { normalizeIncomeMode, resolveEffectiveIncome, type IncomeMode } from "@/lib/income";
 
 type Expense = { id: string; name: string; amount: number; category: string };
 type FinanceRow = {
   budget: number | string | null;
   monthly_income?: number | string | null;
+  extra_income?: number | string | null;
+  income_mode?: IncomeMode | null;
   savings: number | string | null;
   currency: string | null;
   expenses: Expense[];
 };
-type NormalizedFinanceRow = { budget: number; savings: number; currency: SupportedCurrency; expenses: Expense[] };
+type NormalizedFinanceRow = {
+  budget: number;
+  savings: number;
+  currency: SupportedCurrency;
+  expenses: Expense[];
+  incomeMode: IncomeMode;
+};
 
 const CATEGORIES = ["Food", "Bills", "Transport", "Shopping", "Health", "Other"];
 const LEGACY_KEYS = ["money-manager-expenses","money-manager-budget","money-manager:budget","money-manager:expenses"];
@@ -37,12 +46,13 @@ function useRateLimiter() {
 }
 
 function normalizeRow(v: Partial<FinanceRow> | null | undefined): NormalizedFinanceRow {
-  if (!v) return { budget: 0, savings: 0, currency: DEFAULT_CURRENCY, expenses: [] };
-  const normalizedBudget = Number(v.monthly_income) > 0 ? Number(v.monthly_income) : Number(v.budget);
+  if (!v) return { budget: 0, savings: 0, currency: DEFAULT_CURRENCY, expenses: [], incomeMode: "fixed" };
+  const normalizedBudget = resolveEffectiveIncome(v);
   return {
     budget:  Number.isFinite(normalizedBudget) && normalizedBudget > 0 ? normalizedBudget : 0,
     savings: Number(v.savings) > 0 ? Math.min(Number(v.savings), Number.isFinite(normalizedBudget) ? normalizedBudget : 0) : 0,
     currency: normalizeCurrency(v.currency),
+    incomeMode: normalizeIncomeMode(v.income_mode),
     expenses: Array.isArray(v.expenses) ? v.expenses.map(i => ({
       id:       typeof i?.id       === "string" ? i.id       : crypto.randomUUID(),
       name:     typeof i?.name     === "string" ? i.name     : "",
@@ -90,6 +100,7 @@ export default function ExpensesClient({ userId }: { userId: string }) {
   const [budget,   setBudget]   = useState(0);
   const [savings,  setSavings]  = useState(0);
   const [currency, setCurrency] = useState<SupportedCurrency>(DEFAULT_CURRENCY);
+  const [incomeMode, setIncomeMode] = useState<IncomeMode>("fixed");
   const [name,     setName]     = useState("");
   const [amount,   setAmount]   = useState("");
   const [category, setCategory] = useState("Food");
@@ -118,18 +129,18 @@ export default function ExpensesClient({ userId }: { userId: string }) {
       setLoading(true); setError("");
       const { data, error: e } = await supabase
         .from("vaults")
-        .select("budget, monthly_income, savings, currency, expenses")
+        .select("budget, monthly_income, extra_income, income_mode, savings, currency, expenses")
         .eq("user_id", userId)
         .maybeSingle<FinanceRow>();
       if (cancelled) return;
       if (e) { setError(e.message); setLoading(false); return; }
       if (data) {
         const n = normalizeRow(data);
-        setBudget(n.budget); setSavings(n.savings); setCurrency(n.currency); setExpenses(n.expenses);
+        setBudget(n.budget); setSavings(n.savings); setCurrency(n.currency); setExpenses(n.expenses); setIncomeMode(n.incomeMode);
         clearLegacy(userId); setLoading(false); return;
       }
       const legacy = readLegacy(userId) ?? { budget: 0, savings: 0, currency: DEFAULT_CURRENCY, expenses: [] };
-      setBudget(legacy.budget); setSavings(legacy.savings); setCurrency(legacy.currency); setExpenses(legacy.expenses);
+      setBudget(legacy.budget); setSavings(legacy.savings); setCurrency(legacy.currency); setExpenses(legacy.expenses); setIncomeMode("fixed");
       try {
         await saveVault(legacy.budget, legacy.savings, legacy.currency, legacy.expenses);
         if (!cancelled) clearLegacy(userId);
@@ -206,7 +217,7 @@ export default function ExpensesClient({ userId }: { userId: string }) {
         {/* Stats row */}
         <div className="grid-4 fade-up" style={{ marginBottom: 20 }}>
           <div className="stat-tile">
-            <div className="stat-tile-label">Monthly budget</div>
+            <div className="stat-tile-label">{incomeMode === "self_employed" ? "Available income" : "Monthly budget"}</div>
             <div className="stat-tile-value">{formatMoney(budgetValue, currency)}</div>
           </div>
           <div className="stat-tile">
@@ -320,7 +331,7 @@ export default function ExpensesClient({ userId }: { userId: string }) {
           {/* Right sidebar */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div className="card fade-up">
-              <div className="section-heading">Monthly budget</div>
+              <div className="section-heading">{incomeMode === "self_employed" ? "Available income" : "Monthly budget"}</div>
               <label className="field-label">Amount ({currency})</label>
               <div style={{ fontSize: 13.5, color: "var(--ink)", padding: "8px 0" }}>
                 {formatMoney(budget, currency)}
