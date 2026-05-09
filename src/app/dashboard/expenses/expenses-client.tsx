@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_CURRENCY, formatMoney, normalizeCurrency, type SupportedCurrency } from "@/lib/currency";
 import { normalizeIncomeMode, resolveEffectiveIncome, type IncomeMode } from "@/lib/income";
+import SavingsGoals, { type SavingGoal } from "@/app/dashboard/expenses/savings-goals";
 
 type Expense = { id: string; name: string; amount: number; category: string };
 type FinanceRow = {
@@ -14,6 +15,7 @@ type FinanceRow = {
   savings: number | string | null;
   currency: string | null;
   expenses: Expense[];
+  saving_goals?: SavingGoal[] | null;
 };
 type NormalizedFinanceRow = {
   budget: number;
@@ -21,6 +23,7 @@ type NormalizedFinanceRow = {
   currency: SupportedCurrency;
   expenses: Expense[];
   incomeMode: IncomeMode;
+  savingGoals: SavingGoal[];
 };
 
 const CATEGORIES = ["Food", "Bills", "Transport", "Shopping", "Health", "Other"];
@@ -46,13 +49,14 @@ function useRateLimiter() {
 }
 
 function normalizeRow(v: Partial<FinanceRow> | null | undefined): NormalizedFinanceRow {
-  if (!v) return { budget: 0, savings: 0, currency: DEFAULT_CURRENCY, expenses: [], incomeMode: "fixed" };
+  if (!v) return { budget: 0, savings: 0, currency: DEFAULT_CURRENCY, expenses: [], incomeMode: "fixed", savingGoals: [] };
   const normalizedBudget = resolveEffectiveIncome(v);
   return {
     budget:  Number.isFinite(normalizedBudget) && normalizedBudget > 0 ? normalizedBudget : 0,
     savings: Number(v.savings) > 0 ? Math.min(Number(v.savings), Number.isFinite(normalizedBudget) ? normalizedBudget : 0) : 0,
     currency: normalizeCurrency(v.currency),
     incomeMode: normalizeIncomeMode(v.income_mode),
+    savingGoals: Array.isArray(v.saving_goals) ? v.saving_goals : [],
     expenses: Array.isArray(v.expenses) ? v.expenses.map(i => ({
       id:       typeof i?.id       === "string" ? i.id       : crypto.randomUUID(),
       name:     typeof i?.name     === "string" ? i.name     : "",
@@ -81,11 +85,11 @@ function clearLegacy(userId: string) {
   LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
 }
 
-async function saveVault(budget: number, savings: number, currency: SupportedCurrency, expenses: Expense[]) {
+async function saveVault(budget: number, savings: number, currency: SupportedCurrency, expenses: Expense[], savingGoals: SavingGoal[]) {
   const res = await fetch("/api/vault", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ budget, savings, currency, expenses }),
+    body: JSON.stringify({ budget, savings, currency, expenses, saving_goals: savingGoals }),
   });
   if (!res.ok) {
     const { error } = await res.json().catch(() => ({ error: "Unknown error" }));
@@ -99,6 +103,7 @@ export default function ExpensesClient({ userId }: { userId: string }) {
 
   const [budget,   setBudget]   = useState(0);
   const [savings,  setSavings]  = useState(0);
+  const [savingGoals, setSavingGoals] = useState<SavingGoal[]>([]);
   const [currency, setCurrency] = useState<SupportedCurrency>(DEFAULT_CURRENCY);
   const [incomeMode, setIncomeMode] = useState<IncomeMode>("fixed");
   const [name,     setName]     = useState("");
@@ -112,7 +117,8 @@ export default function ExpensesClient({ userId }: { userId: string }) {
 
   const total          = useMemo(() => expenses.reduce((s, i) => s + i.amount, 0), [expenses]);
   const budgetValue    = budget > 0 ? budget : 0;
-  const savingsValue   = savings > 0 ? Math.min(savings, budgetValue) : 0;
+  const goalsSaved     = useMemo(() => savingGoals.reduce((s, g) => s + g.saved, 0), [savingGoals]);
+  const savingsValue   = Math.min(goalsSaved, budgetValue);
   const spendableBudget = Math.max(0, budgetValue - savingsValue);
   const remaining      = spendableBudget - total;
   const pct            = spendableBudget > 0 ? Math.min(100, (total / spendableBudget) * 100) : 0;
@@ -129,20 +135,20 @@ export default function ExpensesClient({ userId }: { userId: string }) {
       setLoading(true); setError("");
       const { data, error: e } = await supabase
         .from("vaults")
-        .select("budget, monthly_income, extra_income, income_mode, savings, currency, expenses")
+        .select("budget, monthly_income, extra_income, income_mode, savings, currency, expenses, saving_goals")
         .eq("user_id", userId)
         .maybeSingle<FinanceRow>();
       if (cancelled) return;
       if (e) { setError(e.message); setLoading(false); return; }
       if (data) {
         const n = normalizeRow(data);
-        setBudget(n.budget); setSavings(n.savings); setCurrency(n.currency); setExpenses(n.expenses); setIncomeMode(n.incomeMode);
+        setBudget(n.budget); setSavings(n.savings); setCurrency(n.currency); setExpenses(n.expenses); setIncomeMode(n.incomeMode); setSavingGoals(n.savingGoals);
         clearLegacy(userId); setLoading(false); return;
       }
       const legacy = readLegacy(userId) ?? { budget: 0, savings: 0, currency: DEFAULT_CURRENCY, expenses: [] };
       setBudget(legacy.budget); setSavings(legacy.savings); setCurrency(legacy.currency); setExpenses(legacy.expenses); setIncomeMode("fixed");
       try {
-        await saveVault(legacy.budget, legacy.savings, legacy.currency, legacy.expenses);
+        await saveVault(legacy.budget, legacy.savings, legacy.currency, legacy.expenses, []);
         if (!cancelled) clearLegacy(userId);
       } catch (ie) {
         if (!cancelled) setError(ie instanceof Error ? ie.message : "Migration failed");
@@ -162,16 +168,14 @@ export default function ExpensesClient({ userId }: { userId: string }) {
       }
       setSaveError("");
       setIsSaving(true);
-      saveVault(budget, savings, currency, expenses)
+      saveVault(budget, goalsSaved, currency, expenses, savingGoals)
         .catch(e => setSaveError(e instanceof Error ? e.message : "Save failed"))
         .finally(() => setIsSaving(false));
     }, 350);
     return () => window.clearTimeout(t);
-  }, [budget, savings, currency, expenses, error, loading, canSave]);
+  }, [budget, goalsSaved, currency, expenses, savingGoals, error, loading, canSave]);
 
-  useEffect(() => {
-    if (savings > budget) setSavings(budget);
-  }, [budget, savings]);
+  // goalsSaved is derived from savingGoals, no need for a side-effect to cap it
 
   function addExpense(e: React.FormEvent) {
     e.preventDefault();
@@ -221,8 +225,8 @@ export default function ExpensesClient({ userId }: { userId: string }) {
             <div className="stat-tile-value">{formatMoney(budgetValue, currency)}</div>
           </div>
           <div className="stat-tile">
-            <div className="stat-tile-label">Savings</div>
-            <div className="stat-tile-value" style={{ color: "var(--accent)" }}>{formatMoney(savingsValue, currency)}</div>
+            <div className="stat-tile-label">Saved (goals)</div>
+            <div className="stat-tile-value" style={{ color: "var(--accent)" }}>{formatMoney(savingGoals.reduce((s, g) => s + g.saved, 0), currency)}</div>
           </div>
           <div className="stat-tile">
             <div className="stat-tile-label">Total spent</div>
@@ -276,11 +280,11 @@ export default function ExpensesClient({ userId }: { userId: string }) {
                 <div className="expense-add-actions">
                   <div style={{ flex: 1 }}>
                     <label className="field-label">Category</label>
-                    <select value={category} onChange={e => setCategory(e.target.value)}>
+                    <select value={category} onChange={e => setCategory(e.target.value)} style={{ fontSize: 14, padding: '10px 12px' }}>
                       {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
-                  <button type="submit" className="btn btn-primary" style={{ flexShrink: 0, width: "100%" }}>Add expense</button>
+                  <button type="submit" className="btn btn-primary" style={{ flexShrink: 0, paddingLeft: 24, paddingRight: 24, height: 37 }}>Add expense</button>
                 </div>
               </form>
             </div>
@@ -338,11 +342,11 @@ export default function ExpensesClient({ userId }: { userId: string }) {
               </div>
             </div>
 
-            <div className="card fade-up">
-              <div className="section-heading">Savings</div>
-              <label className="field-label">Amount ({currency})</label>
-              <input type="number" value={savings} onChange={e => setSavings(Math.max(0, Number(e.target.value)))} min="0" max={budgetValue > 0 ? budgetValue : undefined} step="0.01" placeholder="0.00" />
-            </div>
+            <SavingsGoals
+              goals={savingGoals}
+              currency={currency}
+              onChange={setSavingGoals}
+            />
 
             {Object.keys(byCategory).length > 0 && (
               <div className="card fade-up">

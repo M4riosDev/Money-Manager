@@ -77,15 +77,15 @@ export async function POST(req: NextRequest) {
   if (!body || typeof body !== "object" || Array.isArray(body))
     return err("Body must be a JSON object");
 
-  const { budget, savings, expenses, currency } = body as Record<string, unknown>;
+  const { budget, savings, expenses, currency, saving_goals } = body as Record<string, unknown>;
 
   const budgetNum = Number(budget);
   if (!Number.isFinite(budgetNum) || budgetNum < 0 || budgetNum > MAX_BUDGET)
     return err(`budget must be a number between 0 and ${MAX_BUDGET}`);
 
   const savingsNum = Number(savings ?? 0);
-  if (!Number.isFinite(savingsNum) || savingsNum < 0 || savingsNum > budgetNum)
-    return err(`savings must be a number between 0 and the budget (${budgetNum})`);
+  if (!Number.isFinite(savingsNum) || savingsNum < 0)
+    return err(`savings must be a non-negative number`);
 
   let cleanExpenses: ReturnType<typeof validateExpenses>;
   try {
@@ -96,15 +96,39 @@ export async function POST(req: NextRequest) {
 
   const cleanCurrency = normalizeCurrency(currency);
 
+  const MAX_GOALS = 20;
+  const MAX_GOAL_NAME = 60;
+  let cleanGoals: { id: string; name: string; target: number; saved: number; icon: string; color: string }[] = [];
+  if (Array.isArray(saving_goals)) {
+    if (saving_goals.length > MAX_GOALS) return err(`Too many goals (max ${MAX_GOALS})`);
+    try {
+      cleanGoals = saving_goals.map((g: Record<string, unknown>, idx: number) => {
+        if (!g || typeof g !== "object") throw new Error(`saving_goals[${idx}] is not an object`);
+        const id = typeof g.id === "string" && /^[0-9a-f-]{36}$/.test(g.id) ? g.id : (() => { throw new Error(`saving_goals[${idx}].id invalid`); })();
+        const name = typeof g.name === "string" && g.name.trim().length > 0 && g.name.length <= MAX_GOAL_NAME ? g.name.trim() : (() => { throw new Error(`saving_goals[${idx}].name invalid`); })();
+        const target = Number(g.target);
+        const saved  = Number(g.saved);
+        if (!Number.isFinite(target) || target < 0) throw new Error(`saving_goals[${idx}].target invalid`);
+        if (!Number.isFinite(saved)  || saved  < 0) throw new Error(`saving_goals[${idx}].saved invalid`);
+        const icon  = typeof g.icon  === "string" ? g.icon.slice(0, 4)  : "🎯";
+        const color = typeof g.color === "string" ? g.color.slice(0, 20) : "#3b82f6";
+        return { id, name, target, saved, icon, color };
+      });
+    } catch (e) {
+      return err(e instanceof Error ? e.message : "Invalid saving_goals");
+    }
+  }
+
   const { error: dbErr } = await supabase
     .from("vaults")
     .upsert(
       {
-        user_id:  user.id,
-        budget:   budgetNum,
-        savings:  savingsNum,
-        currency: cleanCurrency,
-        expenses: cleanExpenses,
+        user_id:      user.id,
+        budget:       budgetNum,
+        savings:      savingsNum,
+        currency:     cleanCurrency,
+        expenses:     cleanExpenses,
+        saving_goals: cleanGoals,
       },
       { onConflict: "user_id" }
     );

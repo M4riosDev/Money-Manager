@@ -211,3 +211,13 @@ create trigger vaults_set_updated_at
 before update on public.vaults
 for each row
 execute function public.set_vault_updated_at();
+-- Saving goals (added for goals feature)
+alter table public.vaults
+  add column if not exists saving_goals jsonb not null default '[]'::jsonb;
+
+alter table public.vaults
+  drop constraint if exists vaults_saving_goals_is_array;
+
+alter table public.vaults
+  add constraint vaults_saving_goals_is_array
+  check (jsonb_typeof(saving_goals) = 'array');

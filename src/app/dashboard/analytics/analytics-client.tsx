@@ -7,6 +7,7 @@ import { normalizeIncomeMode, resolveEffectiveIncome, type IncomeMode } from "@/
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
+  RadialBarChart, RadialBar,
 } from "recharts";
 
 type Expense = { id: string; name: string; amount: number; category: string; };
@@ -18,7 +19,10 @@ type FinanceRow = {
   savings?: number | string | null;
   currency: string | null;
   expenses: Expense[];
+  saving_goals?: SavingGoal[] | null;
 };
+
+type SavingGoal = { id: string; name: string; target: number; saved: number; icon: string; color: string };
 
 const COLORS = ["#3b82f6", "#16a34a", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
 
@@ -38,19 +42,21 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
   const [supabase] = useState(() => createClient());
   const [budget, setBudget] = useState(0);
   const [savings, setSavings] = useState(0);
+  const [savingGoals, setSavingGoals] = useState<SavingGoal[]>([]);
   const [currency, setCurrency] = useState<SupportedCurrency>(DEFAULT_CURRENCY);
   const [incomeMode, setIncomeMode] = useState<IncomeMode>("fixed");
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from("vaults").select("budget, monthly_income, extra_income, income_mode, savings, currency, expenses").eq("user_id", userId).maybeSingle<FinanceRow>().then(({ data }) => {
+    supabase.from("vaults").select("budget, monthly_income, extra_income, income_mode, savings, currency, expenses, saving_goals").eq("user_id", userId).maybeSingle<FinanceRow>().then(({ data }) => {
       if (data) {
         const normalizedBudget = resolveEffectiveIncome(data);
         const safeBudget = Number.isFinite(normalizedBudget) && normalizedBudget > 0 ? normalizedBudget : 0;
         const safeSavings = Number(data.savings) > 0 ? Math.min(Number(data.savings), safeBudget) : 0;
         setBudget(safeBudget);
         setSavings(safeSavings);
+        setSavingGoals(Array.isArray(data.saving_goals) ? data.saving_goals : []);
         setIncomeMode(normalizeIncomeMode(data.income_mode));
         setCurrency(normalizeCurrency(data.currency));
         setExpenses(Array.isArray(data.expenses) ? data.expenses : []);
@@ -102,8 +108,8 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
             <div className="stat-tile-value">{formatMoney(budget, currency)}</div>
           </div>
           <div className="stat-tile">
-            <div className="stat-tile-label">Savings</div>
-            <div className="stat-tile-value" style={{ color: "var(--accent)" }}>{formatMoney(savings, currency)}</div>
+            <div className="stat-tile-label">Saved (goals)</div>
+            <div className="stat-tile-value" style={{ color: "var(--accent)" }}>{formatMoney(savingGoals.reduce((s, g) => s + g.saved, 0), currency)}</div>
           </div>
           <div className="stat-tile">
             <div className="stat-tile-label">Total spent</div>
@@ -114,6 +120,97 @@ export default function AnalyticsClient({ userId }: { userId: string }) {
             <div className="stat-tile-value" style={{ color: remaining < 0 ? "var(--danger)" : "var(--accent)" }}>{formatMoney(remaining, currency)}</div>
           </div>
         </div>
+
+        {savingGoals.length > 0 && (
+          <div className="card fade-up">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <div className="section-heading" style={{ marginBottom: 0 }}>Savings Goals</div>
+              <div style={{ fontSize: 12, color: "var(--ink-4)" }}>
+                {formatMoney(savingGoals.reduce((s, g) => s + g.saved, 0), currency)}
+                {" / "}
+                {formatMoney(savingGoals.reduce((s, g) => s + g.target, 0), currency)}
+              </div>
+            </div>
+
+            {/* Radial chart grid — up to 4 per row */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 16, marginBottom: 20 }}>
+              {savingGoals.map((g) => {
+                const pct  = g.target > 0 ? Math.min(100, (g.saved / g.target) * 100) : 0;
+                const done = g.saved >= g.target && g.target > 0;
+                const fill = done ? "#16a34a" : g.color;
+                return (
+                  <div key={g.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                    <div style={{ width: 90, height: 90, position: "relative" }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RadialBarChart
+                          cx="50%" cy="50%"
+                          innerRadius="60%" outerRadius="100%"
+                          startAngle={90} endAngle={-270}
+                          data={[{ value: 100, fill: "#e3e5ea" }, { value: pct, fill }]}
+                          barSize={9}
+                        >
+                          <RadialBar dataKey="value" background={false} isAnimationActive />
+                        </RadialBarChart>
+                      </ResponsiveContainer>
+                      <div style={{
+                        position: "absolute", inset: 0,
+                        display: "flex", flexDirection: "column",
+                        alignItems: "center", justifyContent: "center",
+                        gap: 1,
+                      }}>
+                        <span style={{ fontSize: 18, lineHeight: 1 }}>{g.icon}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: done ? "#16a34a" : "var(--ink-2)" }}>
+                          {done ? "✓" : `${Math.round(pct)}%`}
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", marginBottom: 1, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {g.name}
+                      </div>
+                      <div style={{ fontSize: 10.5, color: "var(--ink-4)", fontVariantNumeric: "tabular-nums" }}>
+                        {formatMoney(g.saved, currency)} / {formatMoney(g.target, currency)}
+                      </div>
+                      {done && (
+                        <span style={{ fontSize: 10, background: "#16a34a18", color: "#16a34a", borderRadius: 99, padding: "1px 7px", fontWeight: 500, display: "inline-block", marginTop: 2 }}>
+                          Done
+                        </span>
+                      )}
+                      {!done && g.target > 0 && (
+                        <div style={{ fontSize: 10.5, color: "var(--ink-4)", marginTop: 1 }}>
+                          {formatMoney(Math.max(0, g.target - g.saved), currency)} left
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Horizontal progress bars below */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+              {savingGoals.map((g) => {
+                const pct  = g.target > 0 ? Math.min(100, (g.saved / g.target) * 100) : 0;
+                const done = g.saved >= g.target && g.target > 0;
+                return (
+                  <div key={g.id}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, color: "var(--ink-2)", display: "flex", alignItems: "center", gap: 5 }}>
+                        <span>{g.icon}</span> {g.name}
+                      </span>
+                      <span style={{ fontSize: 12, color: "var(--ink-4)", fontVariantNumeric: "tabular-nums" }}>
+                        {pct.toFixed(0)}%
+                      </span>
+                    </div>
+                    <div style={{ height: 6, borderRadius: 99, background: "var(--surface-3)", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pct}%`, borderRadius: 99, background: done ? "#16a34a" : g.color, transition: "width 0.5s" }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {expenses.length === 0 ? (
           <div className="card fade-up">
